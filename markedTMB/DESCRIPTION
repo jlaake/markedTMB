@@ -1,0 +1,38 @@
+Package: markedTMB
+Type: Package
+Version: 0.1.1
+Date: 2020-03-10
+Title: Mark-Recapture Analysis for Survival Estimation
+Author: Jeff Laake <jefflaake@gmail.com>
+Maintainer: Jeff Laake <jefflaake@gmail.com>
+Description: Functions for fitting various models to capture-recapture data
+    including mixed-effects multistate models, multi-variate state models and multistate live and dead recovery structure for survival
+    estimation. All models are implemented with TMB.
+Depends:
+    R (>= 3.5.0),
+    lme4,
+    methods,
+    parallel,
+    TMB
+Imports:
+    graphics,
+    stats,
+    utils,
+    truncnorm,
+    coda,
+    Matrix,
+    numDeriv,
+    expm,
+    optimx (>= 2013.8.6),
+    data.table,
+    knitr,
+    kableExtra,
+    bookdown
+Suggests:
+    ggplot2
+LazyLoad: yes
+VignetteBuilder: knitr
+License: GPL (>=2)
+RoxygenNote: 7.0.2
+Encoding: UTF-8
+LazyData: true
