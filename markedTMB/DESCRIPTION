@@ -1,7 +1,7 @@
 Package: markedTMB
 Type: Package
 Version: 0.1.1
-Date: 2020-03-10
+Date: 2020-08-02
 Title: Mark-Recapture Analysis for Survival Estimation
 Author: Jeff Laake <jefflaake@gmail.com>
 Maintainer: Jeff Laake <jefflaake@gmail.com>
