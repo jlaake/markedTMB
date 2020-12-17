@@ -139,8 +139,8 @@ arguments for \code{crm} are a compilation of the calling arguments for each
 of the functions it calls (with some arguments renamed to avoid conflicts).
 expects to find a value for \code{ddl}.  Likewise, if the data have not been
 processed, then \code{ddl} should be NULL.  This dual calling structure
-allows either a single call approach for each model or alternatively for the
-data to be processed and the design data (\code{ddl}) to be created once and
+allows either a single call approach for each model or alternatively the preferred method
+where the data area processed and the design data (\code{ddl}) created once and
 then a whole series of models can be analyzed without repeating those steps.
 
 There are some optional arguments that can be used to set initial values and
@@ -156,18 +156,13 @@ use other link functions. Following the notation of MARK, the parameters in
 the link space are referred to as \code{beta} and those in the actual
 parameter space of \code{Phi} and \code{p} as reals.
 
-Initial values can be set in 2 ways.  To set a baseline intial value for the
-intercept of \code{Phi} \code{p} set those arguments to some real value in
-the open interval (0,1). All non-intercept beta parameters are set to zero.
-Alternatively, you can specify in \code{initial}, a vector of initial values
-for the beta parameters (on the logit scale).  This is most easily done by
-passing the results from a previous model run using the result list element
-\code{beta} as described below.  The code will match the names of the
+Initial values can be set in 2 ways.  1) Define a list of named vectors with 
+the initial beta parameter values (eg logit link) in \code{initial}. 
+The names of the vectors should be the parameter names in the model. Any unspecified
+values are set to 0. 2) Specify a previously run model for initial. The code will match the names of the
 current design matrix to the names in \code{beta} and use the appropriate
-initial values. Any non-specified values are set to 0.  If there are no
-names associated with the \code{initial} vector then they are simply used in
-the specified order. If you do not specify initial values it is equivalent
-to setting \code{Phi} and \code{p} to 0.5.
+initial values. Any non-specified values are set to 0.  If no value is specified for initial,
+all beta are started at a value of 0.
 
 If you have a study with unequal time intervals between capture occasions,
 then these can be specified with the argument \code{time.intervals}.
@@ -197,20 +192,7 @@ The elements of \code{design.parameters} can include \code{time.varying},
 \code{\link{create.dmdf}} for a description of the first 2 and
 \code{\link{create.dm}} for a description of the last 3.
 
-Real parameters can be set to fixed values using \code{fixed=x} where x is a
-matrix with 3 columns and any number of rows.  The first column specifies
-the particular animal (capture history) as the row number in the dataframe
-\code{x}.  The second specifies the capture occasion number for the real
-parameter to be fixed.  For \code{Phi} and \code{pent} these are 1 to
-\code{nocc}-1 and for \code{p} they are 2 to \code{nocc} for "cjs" and 1 to
-\code{nocc} for "js". This difference is due to the parameter labeling by
-the beginning of the interval for Phi (e.g., survival from occasion 1 to 2)
-and by the occasion for \code{p}.  For "cjs" \code{p} is not estimated for
-occasion 1. The third element in the row is the real value in the closed
-unit interval [0,1] for the fixed parameter.  This approach is completely
-general allowing you to fix a particular real parameter for a specific
-animal and occasion but it is a bit kludgy. Alternatively, you can set fixed
-values by specifying values for a field called fix in the design data for a parameter.
+Real parameters can be set to fixed values by specifying values for a field called fix in the design data for a parameter.
 If the value of fix is NA the parameter is estimated and if it is not NA then the real
 parameter is fixed at that value.  If you also specify fixed as decribed above, they will over-ride any
 values you have also set with fix in the design data. To set all of the real values for a

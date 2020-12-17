@@ -299,7 +299,7 @@ mscjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 		if(hessian) 
 		{
 			message("Computing hessian...")
-			beta.vcv=solve(f$he(par))
+		  beta.vcv=solvecov(f$he(par))$inv
 			colnames(beta.vcv)=names(unlist(cjs.beta))
 			rownames(beta.vcv)=colnames(beta.vcv)
 		} else

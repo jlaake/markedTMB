@@ -33,6 +33,8 @@
 
 \item{unit_scale}{default TRUE, if FALSE any time scaled parameter (e.g. Phi,S) is scaled when computing real value such that it represents the length of the interval rather than a unit interval}
 
+\item{simplify}{if TRUE, simplifies ddl to unique values prior to calculation; not valid with random effects}
+
 \item{...}{generic arguments not used here}
 }
 \value{

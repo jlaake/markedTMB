@@ -4,10 +4,12 @@
 \name{mstrata}
 \alias{mstrata}
 \title{Multistrata example data}
-\format{A data frame with 255 observations on the following 2 variables.
+\format{
+A data frame with 255 observations on the following 2 variables.
 \describe{ \item{ch}{a character vector containing the encounter history of
 each bird with strata} \item{freq}{the number of birds with that capture
-history} }}
+history} }
+}
 \description{
 An example data set which appears to be simulated data that accompanies MARK
 as an example analysis using the Multistrata model.

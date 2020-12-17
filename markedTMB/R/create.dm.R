@@ -96,9 +96,9 @@ create.dm=function(x, formula, time.bins=NULL, cohort.bins=NULL, age.bins=NULL, 
    upper=0
 #   dm=Matrix(0,nrow=nrows,ncol=npar)
    dm=NULL
-   pieces=floor(npar*nrows/chunk_size+1)
+   pieces=floor(npar*(nrows/chunk_size)+1)
    rows_in_piece=ceiling(nrows/pieces)
-   if(npar*nrows>chunk_size)
+   if(npar>(chunk_size/nrows))
    {
       for(i in 1:pieces)
 	  {

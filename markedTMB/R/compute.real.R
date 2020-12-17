@@ -16,7 +16,7 @@
 #' @param ddl list of design data 
 #' @param unique TRUE if only unique values should be returned unless non-NULL subset is specified
 #' @param vcv logical; if TRUE, computes and returns v-c matrix of real estimates
-#' @param se logical; if TRUE, computes std errors and conf itervals of real estimates
+#' @param se logical; if TRUE, computes std errors and confidence intervals of real estimates
 #' @param chat over-dispersion value
 #' @param subset logical expression using fields in real dataframe; if used gives all estimates which ignores unique=TRUE
 #' @param select character vector of field names in real that you want to include 
@@ -25,6 +25,8 @@
 #' @param uselink default FALSE; if TRUE uses link values in evaluating uniqueness
 #' @param merge default FALSE but if TRUE, the ddl for the parameter is merged (cbind) to the estimates but only if unique=FALSE
 #' @param unit_scale default TRUE, if FALSE any time scaled parameter (e.g. Phi,S) is scaled when computing real value such that it represents the length of the interval rather than a unit interval
+#' @param simplify if TRUE, simplifies ddl to unique values prior to calculation; not valid with random effects
+#' @param show.fixed if TRUE, returns fixed parameter values as well as estimated values
 #' @export
 #' @return A data frame (\code{real}) is returned if \code{vcv=FALSE};
 #' otherwise, a list is returned also containing vcv.real: \item{real}{ data
@@ -34,7 +36,8 @@
 #' @author Jeff Laake
 #' @keywords utility
 compute_real<-function(model,parameter=NULL,ddl=NULL,unique=TRUE,vcv=FALSE,se=FALSE,chat=1,subset=NULL,
-                       select=NULL,showDesign=FALSE,include=NULL,uselink=FALSE,merge=FALSE,unit_scale=TRUE)
+                       select=NULL,showDesign=FALSE,include=NULL,uselink=FALSE,merge=FALSE,
+                       unit_scale=TRUE,simplify=FALSE,show.fixed=FALSE)
 {
   if(is.null(parameter)) stop("You must specify a parameter")
   #  Note that the vector indices has 3 different meanings in the code as the code progresses.
@@ -46,36 +49,30 @@ compute_real<-function(model,parameter=NULL,ddl=NULL,unique=TRUE,vcv=FALSE,se=FA
   }
 
   # If ddl specified setup data (ddl for a parameter) and extract dm; currently is either passed as an argument or stored in model
+  if(!is.null(subset)&simplify)stop("Cannot simplify ddl and specify subset")
+  if(simplify) ddl=simplify_ddl(ddl[parameter],model$model.parameters[parameter])
   data=ddl[[parameter]]
-  
-# ddl=simplify_ddl(ddl[parameter],model$model.parameters[parameter])
+  # if no subset or simplify then restrict set TRUE for triangular PIMS
+  if(!is.null(data$Time)&model$model.parameter[[parameter]]$type=="Triang"&is.null(subset)&!simplify)
+    restrict=TRUE
+  else
+    restrict=FALSE
   dml=create.dml(ddl,model.parameters=model$model.parameters[parameter],design.parameters=ddl$design.parameters[parameter],
-                 chunk_size=model$results$options$chunk_size)   
-  #
-  # remove unneeded reals - values that occurred before cohort was released; here indces represents the real
-  # parameters to be used
-  #
-  indices=1:nrow(data)
-  if(!is.null(data$Time)&model$model.parameter[[parameter]]$type=="Triang")
-  {
-    indices=which(data$Time>=data$Cohort)
-    data=data[indices,,drop=FALSE]
-  }
-  # expand the simplified dm and get subset of needed reals
-  # design=design[ddl[[paste(parameter,".indices",sep="")]],,drop=FALSE]
+                 chunk_size=model$results$options$chunk_size,restrict=restrict)   
+  if(simplify&!is.null(dml[[parameter]]$re)) stop("Cannot simplify ddl with random effect term at present")
   design=dml[[parameter]]$fe 
-  design=design[indices,,drop=FALSE]
   design=as.matrix(design)
   # if random effects in model cbind onto the design matrix
   re_design=NULL
   if(!is.null(dml[[parameter]]$re))
       for(i in 1:length(dml[[parameter]]$re$re.list))
       {
-        rdm=as.matrix(dml[[parameter]]$re$re.list[[i]])[indices,, drop = FALSE]
+        rdm=as.matrix(dml[[parameter]]$re$re.list[[i]])
+  #        rdm=as.matrix(dml[[parameter]]$re$re.list[[i]])[indices,, drop = FALSE]
         re_design = cbind(re_design, rdm %*% (model$results$re[[parameter]][[i]] * exp(model$results$beta[[paste(parameter,"_logsigma", sep = "")]][i])))
       }
   #
-  # Set up links; for HMM models ulink (utlimate link) is used for mlogit parameters which have a temp "log" link
+  # Set up links; for HMM models ulink (ultimate link) is used for mlogit parameters which have a temp "log" link
   # ulink is known because there are mlogit variables named in parameters.txt for the parameter. Parameters such as pent in JS and
   # Psi in MSCJS, the link is mlogit (rather than log) 
   link=model$model.parameter[[parameter]]$link
@@ -322,6 +319,8 @@ compute_real<-function(model,parameter=NULL,ddl=NULL,unique=TRUE,vcv=FALSE,se=FA
       real.ucl=reals$estimate
     }
     #     Set v-c values of fixed parameters to 0
+    real.lcl[fixedparms]=fixedvalues[fixedparms]
+    real.ucl[fixedparms]=fixedvalues[fixedparms]
     vcv.real[fixedparms,]=0
     vcv.real[,fixedparms]=0
     diag(vcv.real)[diag(vcv.real)<0]=0
@@ -336,9 +335,17 @@ compute_real<-function(model,parameter=NULL,ddl=NULL,unique=TRUE,vcv=FALSE,se=FA
   if(merge)reals=cbind(data,reals)
   rownames(reals)=NULL
   
+  
+  # if !show.fixed remove fixed values
+  if(!show.fixed)
+    reals=reals[!fixedparms,,drop=FALSE]
   # return values	
   if(vcv)
+  {
+    if(!show.fixed)
+      vcv.real=vcv.real[!fixedparms,!fixedparms]
     return(list(real=reals,vcv=vcv.real))
+  }
   else
     return(reals)
 }

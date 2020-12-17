@@ -27,6 +27,8 @@
 #' @param real.ids animal ids passed to TMB code for computation of real parameter values
 #' @param merge default FALSE but if TRUE, the ddl for the parameter is merged (cbind) to the estimates
 #' @param unit_scale default TRUE, if FALSE any time scaled parameter (e.g. Phi,S) is scaled when computing real value such that it represents the length of the interval rather than a unit interval
+#' @param simplify if TRUE, simplifies ddl to unique values prior to calculation; not valid with random effects
+#' @param show.fixed if TRUE, returns fixed parameter values as well as estimated values
 #' @param ... generic arguments not used here
 #' @return A data frame (\code{real}) is returned if \code{vcv=FALSE};
 #' otherwise, a list is returned also containing vcv.real: \item{real}{ data
@@ -37,7 +39,7 @@
 #' @export
 #' @keywords utility
 predict.crm <-function(object,ddl=NULL,parameter=NULL,unique=TRUE,vcv=FALSE,se=FALSE,
-                       chat=1,subset=NULL,select=NULL,real.ids=NULL,merge=FALSE,unit_scale=TRUE,...)
+                       chat=1,subset=NULL,select=NULL,real.ids=NULL,merge=FALSE,unit_scale=TRUE,simplify=FALSE,show.fixed=FALSE,...)
 {
   if(is.null(ddl))
   {
@@ -57,8 +59,10 @@ predict.crm <-function(object,ddl=NULL,parameter=NULL,unique=TRUE,vcv=FALSE,se=F
   {
     results=NULL
     for (parameter in names(object$model.parameters))
-      results[[parameter]]=compute_real(object,parameter,ddl,unique,vcv,se,chat,subset=substitute(subset),select,include=object$model.parameters[[parameter]]$include,merge=merge,unit_scale=unit_scale)
+      results[[parameter]]=compute_real(object,parameter,ddl,unique,vcv,se,chat,subset=substitute(subset),select,
+                                        include=object$model.parameters[[parameter]]$include,merge=merge,unit_scale=unit_scale,simplify=simplify,show.fixed=show.fixed)
     return(results)
   } else
-    return(compute_real(object,parameter,ddl,unique,vcv,se,chat,subset=substitute(subset),select,include=object$model.parameters[[parameter]]$include,merge=merge,unit_scale=unit_scale))	
+    return(compute_real(object,parameter,ddl,unique,vcv,se,chat,subset=substitute(subset),select,
+                                        include=object$model.parameters[[parameter]]$include,merge=merge,unit_scale=unit_scale,simplify=simplify,show.fixed=show.fixed))
 }
