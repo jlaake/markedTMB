@@ -35,6 +35,8 @@
 
 \item{simplify}{if TRUE, simplifies ddl to unique values prior to calculation; not valid with random effects}
 
+\item{show.fixed}{if TRUE, returns fixed parameter values as well as estimated values}
+
 \item{...}{generic arguments not used here}
 }
 \value{

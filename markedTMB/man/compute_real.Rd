@@ -19,7 +19,8 @@ compute_real(
   uselink = FALSE,
   merge = FALSE,
   unit_scale = TRUE,
-  simplify = FALSE
+  simplify = FALSE,
+  show.fixed = FALSE
 )
 }
 \arguments{
@@ -33,7 +34,7 @@ compute_real(
 
 \item{vcv}{logical; if TRUE, computes and returns v-c matrix of real estimates}
 
-\item{se}{logical; if TRUE, computes std errors and conf itervals of real estimates}
+\item{se}{logical; if TRUE, computes std errors and confidence intervals of real estimates}
 
 \item{chat}{over-dispersion value}
 
@@ -52,6 +53,8 @@ compute_real(
 \item{unit_scale}{default TRUE, if FALSE any time scaled parameter (e.g. Phi,S) is scaled when computing real value such that it represents the length of the interval rather than a unit interval}
 
 \item{simplify}{if TRUE, simplifies ddl to unique values prior to calculation; not valid with random effects}
+
+\item{show.fixed}{if TRUE, returns fixed parameter values as well as estimated values}
 }
 \value{
 A data frame (\code{real}) is returned if \code{vcv=FALSE};
