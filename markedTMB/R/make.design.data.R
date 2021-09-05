@@ -224,6 +224,16 @@ full.design.data=vector("list",length=length(parameters))
      full.design.data$Psi$fix[full.design.data$Psi$occ==max(full.design.data$Psi$occ)&
                               full.design.data$Psi$stratum!=full.design.data$Psi$tostratum]=0
    }
+   if(data$model=="MSJS")
+   {
+     full.design.data$p$fix[full.design.data$p$stratum=="N"]=0
+     full.design.data$S$fix=ifelse(full.design.data$p$stratum=="N",1,NA)
+     full.design.data$pent$fix[full.design.data$pent$stratum=="N"]=0
+     full.design.data$Psi$fix[full.design.data$Psi$tostratum=="N"]=0
+     full.design.data$Psi$fix[full.design.data$Psi$stratum=="N"]=0
+   }
+   
+   
    # reset rownames
    for(i in 1:length(parameters))
      rownames(full.design.data[[i]])=NULL

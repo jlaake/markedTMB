@@ -174,7 +174,13 @@ Type objective_function<Type>::operator() ()
                 if(p_randIndex(p_randIndex_i(i2-1)-1,L-1)>0)
                   mu+=p_randDM(p_randDM_i(i2-1)-1,L-1)*p_u(p_randIndex(p_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_p(L-1));
             }
-            p((j-1)*nS+k-1)=1/(1+exp(-(uniquep(idx)+mu)));
+            if((uniquep(idx)+mu)< -25)
+              p((j-1)*nS+k-1)=1/(1+exp(25));
+            else  
+              if((uniquep(idx)+mu)> 25)
+                p((j-1)*nS+k-1)=1/(1+exp(-25));
+              else
+                p((j-1)*nS+k-1)=1/(1+exp(-(uniquep(idx)+mu)));
         }
         else
           p((j-1)*nS+k-1)=pfix(idx);
@@ -208,7 +214,13 @@ Type objective_function<Type>::operator() ()
                   if(psi_randIndex(psi_randIndex_i(i2-1)-1,L-1)>0)
                     mu+=psi_randDM(psi_randDM_i(i2-1)-1,L-1)*psi_u(psi_randIndex(psi_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_psi(L-1));
               }
-              psi(j-1,k-1,k2-1)=exp(uniquepsi(idx)+mu);
+              if((uniquepsi(idx)+mu)>700)
+                  psi(j-1,k-1,k2-1)=exp(700);
+              else
+                if((uniquepsi(idx)+mu)< -700)
+                  psi(j-1,k-1,k2-1)=exp(-700);
+                else
+                  psi(j-1,k-1,k2-1)=exp(uniquepsi(idx)+mu);
           }
           else
             psi(j-1,k-1,k2-1)=psifix(idx);

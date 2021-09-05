@@ -161,7 +161,8 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    # If ch is not comma delimited, turn into comma delimited
    if(length(grep(",",data$ch[1]))==0)
 	   data$ch=sapply(strsplit(data$ch,""),paste,collapse=",")
-#   data$ch=toupper(data$ch)
+   if("N" %in% strata.labels)stop("N cannot be a strata label in MSJS. It is reserved for non-entered state.")
+   if(model=="MSJS")data$ch=paste("N,",data$ch,sep="")
    ch.lengths=sapply(strsplit(data$ch,","),length)
    nocc=median(ch.lengths)
    if(any(ch.lengths!=nocc))
