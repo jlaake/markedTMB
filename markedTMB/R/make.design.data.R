@@ -231,6 +231,7 @@ full.design.data=vector("list",length=length(parameters))
      full.design.data$pent$fix[full.design.data$pent$stratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$tostratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$stratum=="N"]=0
+     full.design.data$f0=full.design.data$f0[full.design.data$f0$freq==0,]
    }
    
    
