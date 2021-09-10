@@ -162,7 +162,8 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    if(length(grep(",",data$ch[1]))==0)
 	   data$ch=sapply(strsplit(data$ch,""),paste,collapse=",")
    if("N" %in% strata.labels)stop("N cannot be a strata label in MSJS. It is reserved for non-entered state.")
-   if(model=="MSJS")data$ch=paste("N,",data$ch,sep="")
+   # For MSJS models, put an N at the beginning of each ch for the non-entered state.  
+   if(model=="MSJS") data$ch=paste("N,",data$ch,sep="")
    ch.lengths=sapply(strsplit(data$ch,","),length)
    nocc=median(ch.lengths)
    if(any(ch.lengths!=nocc))
@@ -387,11 +388,11 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    #
    if(number.of.factors==0)
    {
-       if(model=="JS")
+       if(model=="MSJS")
        {
           data=add.dummy.data(data,nocc=nocc,group.covariates=NULL)     
           number.of.ch=nrow(data)
-		  data$id=factor(1:nrow(data))
+		      data$id=factor(1:nrow(data))
        }
 	   if(length(begin.time)>1)stop("\nbegin.time has more than one value and no groups were specified")
        plist=list(data=data,model=model,mixtures=mixtures,
@@ -513,7 +514,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
         #
         # Return data as a list with original dataframe and frequency matrix
         #
-        if(model=="JS")
+        if(model=="MSJS")
           data=add.dummy.data(data,nocc,group.covariates)     
 	    data$id=factor(1:nrow(data))
 	    if(is.null(data$initial.age)) data$initial.age=init.ages[data$group]
@@ -545,6 +546,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
 }
 add.dummy.data=function(data,nocc,group.covariates)
 {
+  # the code here differs from marked as it is for MSJS model
 	if(is.null(group.covariates))
 		number.of.groups=1
 	else
@@ -593,8 +595,8 @@ add.dummy.data=function(data,nocc,group.covariates)
 		else
 			xx=NULL
 	}
-	chmat=matrix(0,nrow=nocc,ncol=nocc)
-	diag(chmat)=1
+	chmat=matrix(0,nrow=1,ncol=nocc)
+	diag(chmat)="N"
 	ch=apply(chmat,1,paste,collapse=",")
 	ch=rep(ch,number.of.groups)
 	if(is.null(data$freq))
@@ -610,8 +612,8 @@ add.dummy.data=function(data,nocc,group.covariates)
 		{
 			data=subset(data,select=c("ch","freq","group",numvar[numvar!="group"],names(group.covariates)))
 			xx=subset(xx,select=!names(xx)%in%"group")
-			dummy.data=cbind(data.frame(ch=ch,freq=rep(0,length(ch))),group=factor(rep(1:number.of.groups,each=nocc)),
-					xx[rep(1:number.of.groups,each=nocc),,drop=FALSE])
+			dummy.data=cbind(data.frame(ch=ch,freq=rep(0,length(ch))),group=factor(rep(1:number.of.groups,each=1)),
+					xx[rep(1:number.of.groups,each=1),,drop=FALSE])
 			names(dummy.data)=c("ch","freq","group",names(group.covariates),numvar[numvar!="group"])             
 		}
 	}
@@ -622,7 +624,7 @@ add.dummy.data=function(data,nocc,group.covariates)
 		names(dummy.data)=c("ch","freq")     
 	}
 	row.names(dummy.data)=NULL
-	return(rbind(data,dummy.data))
+	return(rbind(dummy.data,data))
 }
 accumulate_data <- function(data)
 {

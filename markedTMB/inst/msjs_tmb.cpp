@@ -57,18 +57,40 @@ Type objective_function<Type>::operator() ()
   DATA_IMATRIX(psi_idIndex);                  // psi random effect indices by id; index into u_phi to construct phi_u
   DATA_IVECTOR(psi_idIndex_i);                // psi random effect id index indices
 
+  DATA_INTEGER(nrowpent);                      // number of rows in the simplified design matrix for pent
+  DATA_MATRIX(pentdm);                         // design matrix for pent
+  DATA_VECTOR(pentfix);                        // pent fixed values
+  DATA_IVECTOR(pentindex);                     // pent indices
+  DATA_INTEGER(pent_nre);                      // number of random effects for pent
+  DATA_INTEGER(pent_krand);                    // number of columns in pent random effect DM
+  DATA_MATRIX(pent_randDM);                    // pent random effect DM
+  DATA_IVECTOR(pent_randDM_i);                 // pent random DM indices
+  DATA_IMATRIX(pent_randIndex);                // pent random effect indices for DM; index into phi_u
+  DATA_IVECTOR(pent_randIndex_i);              // pent random effect index indices
+  DATA_IVECTOR(pent_counts);                   // count of pent random effect indices by id
+  DATA_IMATRIX(pent_idIndex);                  // pent random effect indices by id; index into u_phi to construct phi_u
+  DATA_IVECTOR(pent_idIndex_i);                // pent random effect id index indices
+  
+  DATA_INTEGER(nrowf0);                        // number of rows in the design matrix for f0
+  DATA_MATRIX(f0dm);                         // design matrix for f0
+
+                                                                                                                                                                                          
   DATA_INTEGER(getreals);                     // if 1, report reals and std errors
 
   PARAMETER_VECTOR(phibeta);                  // parameter vector for Phi
   PARAMETER_VECTOR(pbeta);                    // parameter vector for p
   PARAMETER_VECTOR(psibeta);                  // parameter vector for Psi
+  PARAMETER_VECTOR(pentbeta);                 // parameter vector for pent
+  PARAMETER_VECTOR(f0beta);                   // parameter vector for f0
   PARAMETER_VECTOR(log_sigma_phi);
   PARAMETER_VECTOR(log_sigma_p);
   PARAMETER_VECTOR(log_sigma_psi);
+  PARAMETER_VECTOR(log_sigma_pent);
   PARAMETER_VECTOR(u_phi);
   PARAMETER_VECTOR(u_p);
   PARAMETER_VECTOR(u_psi);
-
+  PARAMETER_VECTOR(u_pent);
+  
   Type g=0;
 
   int nrows;                           // number of entries in design matrix m-1 values for each of nS states
@@ -81,11 +103,15 @@ Type objective_function<Type>::operator() ()
   vector<Type> uniquephi(nrowphi);     // all unique phi values
   vector<Type> phi(nrows);             // temp vector for Phis for an individual
   vector<Type> uniquep(nrowp);         // all unique p values
+  vector<Type> f0(nrowf0);             // all f0 values
   vector<Type> p(nrows);               // temp vector for ps for an individual
   vector<Type> uniquepsi(nrowpsi);     // temp vector for psis
   Type psisum;                         // sum of psi for each state to normalize with
-
+  vector<Type> uniquepent(nrowpent);   // temp vector for pent
+  Type pentsum;                        // sum of pent across states and time
+  
   array<Type> psi(m-1,nS,nS);         // matrix for psis for each occasion
+  array<Type> pent(m-1,nS);           // matrix for pent by occasion and state
   array<Type> gamma(m-1,nS+1,nS+1);   // transition probability matrices for individual i
   array<Type> dmat(m-1,nS+1,nS+1);    // observation probability matrices for individual i
   array<double> allgamma(n,m-1,nS+1,nS+1);   // transition probability matrices for all individuals
@@ -103,22 +129,30 @@ Type objective_function<Type>::operator() ()
   if(p_nre==0)npcounts=0;
   int npsicounts=n;                   // number of counts for psi random effects by id
   if(psi_nre==0)npsicounts=0;
-
-  if(phi_krand>0)	                                        // likelihood contribution for n(0,1) re for
+  int npentcounts=n;                   // number of counts for pent random effects by id
+  if(pent_nre==0)npentcounts=0;
+  
+  if(phi_krand>0)	                                        // likelihood contribution for n(0,1) re for phi
     for (int i=0;i<=phi_nre-1;i++)
       g-= dnorm(u_phi(i),Type(0),Type(1),true);
 
-  if(p_krand>0)	                                        // likelihood contribution for n(0,1) re for p
+  if(p_krand>0)	                                         // likelihood contribution for n(0,1) re for p
     for (int i=0;i<=p_nre-1;i++)
       g-= dnorm(u_p(i),Type(0),Type(1),true);
 
-  if(psi_krand>0)	                                        // likelihood contribution for n(0,1) re for p
+  if(psi_krand>0)	                                        // likelihood contribution for n(0,1) re for psi
     for (int i=0;i<=psi_nre-1;i++)
       g-= dnorm(u_psi(i),Type(0),Type(1),true);
 
+  if(pent_krand>0)	                                      // likelihood contribution for n(0,1) re for pent
+    for (int i=0;i<=pent_nre-1;i++)
+      g-= dnorm(u_pent(i),Type(0),Type(1),true);
+  
   uniquephi=phidm*phibeta;                              // compute unique parameter sets on link scale
+  f0=exp(f0dm*f0beta);
   uniquep=pdm*pbeta;
   uniquepsi=psidm*psibeta;
+  uniquepent=pentdm*pentbeta;
   alldmat.setZero();
   allgamma.setZero();
 
@@ -127,6 +161,7 @@ Type objective_function<Type>::operator() ()
     vector<Type> p_u(p_idIndex.cols());        // define random effects vector for p, Phi and psi used
     vector<Type> phi_u(phi_idIndex.cols());    // just for this capture history copied from full vectors
     vector<Type> psi_u(psi_idIndex.cols());
+    vector<Type> pent_u(pent_idIndex.cols());
     p_u.setZero();
     phi_u.setZero();
     if(nphicounts >0)                          // if any random effects for phi, copy values from u_phi to phi_u
@@ -155,9 +190,20 @@ Type objective_function<Type>::operator() ()
         for(j=0;j<=psi_counts(i-1)-1;j++)
           psi_u(j)=u_psi(psi_idIndex(psi_idIndex_i(i-1)-1,j)-1);
     }
+
+    if(npentcounts >0)                           // if any random effects for pent, copy values from u_pent to pent_u
+    {
+      if(pent_counts(i-1)==0)
+        pent_u(0)=0;
+      else
+        for(j=0;j<=pent_counts(i-1)-1;j++)
+          pent_u(j)=u_pent(pent_idIndex(pent_idIndex_i(i-1)-1,j)-1);
+    }
+    
     //  compute phi and p values for the individual
     bindex=(i-1)*nrows;                               // initialize indices into index values for the ith history
     bindex2=(i-1)*nT;
+    pentsum=0;
     for (j=1;j<=m-1;j++)
     {
       for (k=1;k<=nS;k++)
@@ -199,6 +245,8 @@ Type objective_function<Type>::operator() ()
         }
         else
           phi((j-1)*nS+k-1)=phifix(idx);
+
+        //  compute psi values for the individual
         psisum=0;
         for(k2=1;k2<=nS;k2++)
         {
@@ -228,14 +276,49 @@ Type objective_function<Type>::operator() ()
         }
         for(k2=1;k2<=nS;k2++)
           psi(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)/psisum;
+
+      // compute pent values for individual
+      idx=pentindex(i2-1)-1;
+      if(pentfix(idx)< -0.5)
+      {
+        mu=0;
+        if(npcounts>0)
+          if(pent_counts(i-1) > 0)	                        // random portion of mean if any
+          {
+            for(L=1;L<=pent_krand;L++)
+              if(pent_randIndex(pent_randIndex_i(i2-1)-1,L-1)>0)
+                mu+=pent_randDM(pent_randDM_i(i2-1)-1,L-1)*pent_u(pent_randIndex(pent_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_pent(L-1));
+          }
+          if((uniquepent(idx)+mu)< -700)
+            pent(j-1,k-1)=exp(-700));
+          else  
+            if((uniquepent(idx)+mu)> 700)
+              pent(j-1,k-1)=exp(700);
+            else
+              pent(j-1,k-1)=exp(-(uniquepent(idx)+mu));
       }
+      else
+        pent(j-1,k-1)=pentfix(idx);
+      pentsum+=pent(j-1,k-1)
+                
+      } // end of loop over states
       bindex2=bindex2+nS*nS;
-    }
-    if(getreals>0)                                               // if requested report phi,p and psi values
+      
+    } // end of loop over occasions
+    
+    // normalize pent to sum to 1 by looping over occasions and states
+    for (j=1;j<=m-1;j++)
+      for (k=1;k<=nS;k++)
+        pent(j-1,k-1)=pent(j-1,k-1)/pentsum;
+      
+    
+    if(getreals>0)                                               // if requested report phi,p,psi,pent and f0 values
     {
       ADREPORT(phi);
       ADREPORT(p);
       ADREPORT(psi);
+      ADREPORT(pent);
+      ADREPORT(f0);
     }
 
     //  compute transition matrices for each occasion
@@ -247,8 +330,13 @@ Type objective_function<Type>::operator() ()
       {
         for(k2=1;k2<=nS;k2++)
         {
-          gamma(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)*phi(bindex-1);    // adjust psi for survival
-          allgamma(i-1,j-1,k-1,k2-1)=asDouble(gamma(j-1,k-1,k2-1));
+          if(k==1)
+            gamma(j-1,0,k2-1)=pent(j-1,k2-1);    // entry to population from state N
+          else
+          {
+            gamma(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)*phi(bindex-1);    // adjust psi for survival
+            allgamma(i-1,j-1,k-1,k2-1)=asDouble(gamma(j-1,k-1,k2-1));
+          }
         }
         gamma(j-1,k-1,nS)=1-phi(bindex-1);              // add death state value for each state
         allgamma(i-1,j-1,k-1,nS)=asDouble(gamma(j-1,k-1,nS));
@@ -301,9 +389,12 @@ Type objective_function<Type>::operator() ()
       Lglki+=log(u);    	                            // accumulate log-likelihood value
 
     }
-    g-=freq(i-1)*Lglki;
+    if(freq(i-1)==0)
+      g-=f0(i-1)*Lglki;
+    else
+      g-=freq(i-1)*Lglki;
 
-  }
+  } // end of loop over individuals
   REPORT(alldmat);
   REPORT(allgamma);
   return g;
