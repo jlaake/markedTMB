@@ -290,7 +290,7 @@ Type objective_function<Type>::operator() ()
                 mu+=pent_randDM(pent_randDM_i(i2-1)-1,L-1)*pent_u(pent_randIndex(pent_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_pent(L-1));
           }
           if((uniquepent(idx)+mu)< -700)
-            pent(j-1,k-1)=exp(-700));
+            pent(j-1,k-1)=exp(-700);
           else  
             if((uniquepent(idx)+mu)> 700)
               pent(j-1,k-1)=exp(700);
@@ -299,7 +299,7 @@ Type objective_function<Type>::operator() ()
       }
       else
         pent(j-1,k-1)=pentfix(idx);
-      pentsum+=pent(j-1,k-1)
+      pentsum+=pent(j-1,k-1);
                 
       } // end of loop over states
       bindex2=bindex2+nS*nS;

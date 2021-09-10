@@ -143,7 +143,7 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	
 	# f0 design matrix
 	f0dm=as.matrix(model_data$f0.dm)
-	f0_slist=1:nrow(f0dm)
+	f0_slist=list(set=1:nrow(f0dm))
 
 	f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
 					ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
