@@ -191,7 +191,7 @@ full.design.data=vector("list",length=length(parameters))
 		  }		  
 	  }
 	  # assign p/delta for CJS type models conditionining on first release
-      if(parameters[[i]]$cjs)
+    if(parameters[[i]]$cjs)
 	  {
 		  full.design.data[[i]]$fix=NA
 		  full.design.data[[i]]$fix[as.character(full.design.data[[i]]$time)==as.character(full.design.data[[i]]$cohort)]=1	  
@@ -227,11 +227,14 @@ full.design.data=vector("list",length=length(parameters))
    if(data$model=="MSJS")
    {
      full.design.data$p$fix[full.design.data$p$stratum=="N"]=0
-     full.design.data$S$fix=ifelse(full.design.data$p$stratum=="N",1,NA)
-     full.design.data$pent$fix[full.design.data$pent$stratum=="N"]=0
+     full.design.data$S$fix=ifelse(full.design.data$S$stratum=="N",1,NA)
+     full.design.data$S$fix[full.design.data$S$occ==1]=1
+     full.design.data$pi=droplevels(full.design.data$pi[full.design.data$pi$stratum!="N",])
+     full.design.data$pi$order=1:nrow(full.design.data$pi)
+     if(!is.null(parameters$pi$subtract.stratum))full.design.data$pi$fix=ifelse(full.design.data$pi$stratum==parameters$pi$subtract.stratum,1,NA)
      full.design.data$Psi$fix[full.design.data$Psi$tostratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$stratum=="N"]=0
-     full.design.data$f0=full.design.data$f0[full.design.data$f0$freq==0,]
+     full.design.data$Psi$fix[full.design.data$Psi$occ==1&is.na(full.design.data$Psi$fix)]=0
    }
    
    

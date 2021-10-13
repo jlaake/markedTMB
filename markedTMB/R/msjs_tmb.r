@@ -16,7 +16,7 @@
 #' @param dml list of design matrices created by \code{\link{create.dm}} from
 #' formula and design data
 #' @param model_data a list of all the relevant data for fitting the model including
-#' imat, S.dm,p.dm,Psi.dm,pent.dm,S.fixed,p.fixed,Psi.fixed,pent.fixed and time.intervals. It is used to 
+#' imat, S.dm,p.dm,Psi.dm,pent.dm,pi.dm,S.fixed,p.fixed,Psi.fixed,pent.fixed,pi.fixed and time.intervals. It is used to 
 #' save values and avoid accumulation again if the model was re-rerun with an additional call when
 #' using autoscale or re-starting with initial values.  It is stored with returned model object.
 #' @param parameters equivalent to \code{model.parameters} in \code{\link{crm}}
@@ -87,13 +87,14 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 		par=list(Psi=rep(0,ncol(dml$Psi$fe)),
 				p=rep(0,ncol(dml$p$fe)),
 				S=rep(0,ncol(dml$S$fe)),
-				pent=rep(0,ncol(dml$p$fe)),
-				f0=rep(1,ncol(dml$f0$fe)))
+				pent=rep(0,ncol(dml$pent$fe)),
+				pi=rep(0,ncol(dml$pi$fe)))
 	else
 		par=set.initial(names(dml),dml,initial)$par
 # Create list of model data for optimization
-	model_data=list(S.dm=dml$S$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,pent.dm=dml$pent$fe,f0.dm=dml$f0$fe,imat=imat,S.fixed=parameters$S$fixed,
-			p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,pent.fixed=parameters$pent$fixed,time.intervals=time.intervals)
+	model_data=list(S.dm=dml$S$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,pent.dm=dml$pent$fe,pi.dm=dml$pi$fe,imat=imat,S.fixed=parameters$S$fixed,
+			p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,pent.fixed=parameters$pent$fixed,pi.fixed=parameters$pi$fixed,
+			time.intervals=time.intervals)
 #   If data are to be accumulated based on ch and design matrices do so here;
 	if(accumulate)
 	{
@@ -140,11 +141,15 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	  pentfix[!is.na(ddl$pent$fix)]=ddl$pent$fix[!is.na(ddl$pent$fix)]
 	pent_slist=simplify_indices(cbind(pentdm,pentfix))
 	pent_relist=setup_re(fullddl$pent,parameters$pent$formula)
-	
-	# f0 design matrix
-	f0dm=as.matrix(model_data$f0.dm)
-	f0_slist=list(set=1:nrow(f0dm))
 
+	# pi design matrix
+	pidm=as.matrix(model_data$pi.dm)
+	pifix=rep(-1,nrow(pidm))
+	if(!is.null(ddl$pi$fix))
+	  pifix[!is.na(ddl$pi$fix)]=ddl$pi$fix[!is.na(ddl$pi$fix)]
+	pi_slist=simplify_indices(cbind(pidm,pifix))
+	pi_relist=setup_re(fullddl$pi,parameters$pi$formula)
+	
 	f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
 					ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
 					nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
@@ -165,11 +170,15 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 					pentfix=pentfix[pent_slist$set],pentindex=pent_slist$indices[ddl$pent.indices],
 					pent_nre=pent_relist$nre,pent_krand=pent_relist$krand,pent_randDM=pent_relist$randDM,pent_randDM_i=pent_relist$randDM_i,
 					pent_randIndex=pent_relist$randIndex,pent_randIndex_i=pent_relist$randIndex_i,pent_counts=pent_relist$counts,pent_idIndex=pent_relist$idIndex,
-					pent_idIndex_i=pent_relist$idIndex_i,	nrowf0=length(f0_slist$set),	f0dm=pentdm[f0_slist$set,,drop=FALSE],
-					getreals=as.integer(getreals)),
-			        parameters=list(phibeta=par$S,pbeta=par$p,psibeta=par$Psi,pentbeta=par$pent,f0beta=par$f0,log_sigma_phi=rep(-1,phi_relist$nsigma),
-					log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),log_sigma_pent=rep(-1,pent_relist$nsigma),u_phi=rep(0,phi_relist$nre),
-					u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre),u_pent=rep(0,pent_relist$nre)),random=c("u_phi","u_p","u_psi","u_pent"),DLL="msjs_tmb")
+					pent_idIndex_i=pent_relist$idIndex_i,	
+					nrowpi=length(pi_slist$set),	pidm=pidm[pi_slist$set,,drop=FALSE],
+					pifix=pifix[pi_slist$set],piindex=pi_slist$indices[ddl$pi.indices],
+					pi_nre=pi_relist$nre,pi_krand=pi_relist$krand,pi_randDM=pi_relist$randDM,pi_randDM_i=pi_relist$randDM_i,
+					pi_randIndex=pi_relist$randIndex,pi_randIndex_i=pi_relist$randIndex_i,pi_counts=pi_relist$counts,pi_idIndex=pi_relist$idIndex,
+					pi_idIndex_i=pi_relist$idIndex_i,getreals=as.integer(getreals)),
+			        parameters=list(phibeta=par$S,pbeta=par$p,psibeta=par$Psi,pentbeta=par$pent,pibeta=par$pi,log_sigma_phi=rep(-1,phi_relist$nsigma),
+					log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),log_sigma_pent=rep(-1,pent_relist$nsigma),log_sigma_pi=rep(-1,pi_relist$nsigma),u_phi=rep(0,phi_relist$nre),
+					u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre),u_pent=rep(0,pent_relist$nre),u_pi=rep(0,pi_relist$nre)),random=c("u_phi","u_p","u_psi","u_pent","u_pi"),DLL="msjs_tmb")
 	cat("\nrunning TMB program\n")                         
 	if(method=="nlminb")
 	{
@@ -201,13 +210,13 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	  }
 	  lnl=mod$value
 	}
-	fixed.npar=ncol(phidm)+ncol(pdm)+ncol(psidm)+ncol(pentdm)+ncol(f0dm)
+	fixed.npar=ncol(phidm)+ncol(pdm)+ncol(psidm)+ncol(pentdm)+ncol(pidm)
 	par_summary=sdreport(f,getJointPrecision=getreals&hessian)
 	S_re=NULL
 	p_re=NULL
 	Psi_re=NULL
 	pent_re=NULL
-	if(p_relist$nre+phi_relist$nre+psi_relist$nre+pent_relist$nre>0)
+	if(p_relist$nre+phi_relist$nre+psi_relist$nre+pent_relist$nre+pi_relist$nre>0)
 	{
 	  random_values=par_summary$par.random
 	 	par=par_summary$par.fixed[1:fixed.npar]
@@ -242,6 +251,13 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 		  sigma=c(sigma,list(pent_logsigma=pent_sigma))
 		  pent_re=split(random_values[names(random_values)%in%"u_pent"],rep(1:length(pent_relist$nre_byeffect),pent_relist$nre_byeffect))
 		} 
+		if(pi_relist$krand>0)
+		{
+		  pi_sigma=cjs.beta.sigma[(phi_relist$krand+p_relist$krand+psi_relist$krand+pent_relist$krand+1):(phi_relist$krand+p_relist$krand+psi_relist$krand+pent_relist$krand+pi_relist$krand)]
+		  names(pi_sigma)=colnames(pi_relist$randDM)
+		  sigma=c(sigma,list(pi_logsigma=pi_sigma))
+		  pi_re=split(random_values[names(random_values)%in%"u_pi"],rep(1:length(pi_relist$nre_byeffect),pi_relist$nre_byeffect))
+		} 
 		cjs.beta=c(cjs.beta.fixed,sigma)
 		beta.vcv=par_summary$cov.fixed
 		colnames(beta.vcv)=names(unlist(cjs.beta))
@@ -263,8 +279,8 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	{
 		reals=split(par_summary$value,names(par_summary$value))
 		reals.se=split(par_summary$sd,names(par_summary$value))	
-		names(reals)=c("p","S","Psi","pent","f0")
-		names(reals.se)=c("p","S","Psi","pent","f0")
+		names(reals)=c("p","S","Psi","pent","pi")
+		names(reals.se)=c("p","S","Psi","pent","pi")
 		reals$S[fullddl$S$Time<fullddl$S$Cohort]=NA
 		reals.se$S[fullddl$S$Time<fullddl$S$Cohort]=NA
 		reals$p[fullddl$p$Time<fullddl$p$Cohort]=NA
