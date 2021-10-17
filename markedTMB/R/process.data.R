@@ -161,9 +161,9 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    # If ch is not comma delimited, turn into comma delimited
    if(length(grep(",",data$ch[1]))==0)
 	   data$ch=sapply(strsplit(data$ch,""),paste,collapse=",")
-   if("N" %in% strata.labels)stop("N cannot be a strata label in MSJS. It is reserved for non-entered state.")
+   if(model%in%c("MSJS","MSJSU")&"N" %in% strata.labels)stop("N cannot be a strata label in MSJS or MSJSU. It is reserved for non-entered state.")
    # For MSJS models, put an N at the beginning of each ch for the non-entered state.  
-   if(model=="MSJS") data$ch=paste("N,",data$ch,sep="")
+   if(model%in%c("MSJS","MSJSU")) data$ch=paste("N,",data$ch,sep="")
    ch.lengths=sapply(strsplit(data$ch,","),length)
    nocc=median(ch.lengths)
    if(any(ch.lengths!=nocc))
@@ -388,14 +388,14 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    #
    if(number.of.factors==0)
    {
-       if(model=="MSJS")
-       {
+     if(model%in%c("MSJS","MSJSU"))
+     {
           data=add.dummy.data(data,nocc=nocc,group.covariates=NULL)     
           number.of.ch=nrow(data)
 		      data$id=factor(1:nrow(data))
-       }
+     }
 	   if(length(begin.time)>1)stop("\nbegin.time has more than one value and no groups were specified")
-       plist=list(data=data,model=model,mixtures=mixtures,
+            plist=list(data=data,model=model,mixtures=mixtures,
                    freq=matrix(data$freq,ncol=1,dimnames=list(1:number.of.ch,"group1")),
                    nocc=nocc, nocc.secondary=nocc.secondary,time.intervals=time.intervals,begin.time=begin.time,
                    initial.ages=initial.ages[1],group.covariates=NULL,start=start,ehmat=ehmat)
@@ -514,7 +514,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
         #
         # Return data as a list with original dataframe and frequency matrix
         #
-        if(model=="MSJS")
+        if(model%in%c("MSJS","MSJSU"))
           data=add.dummy.data(data,nocc,group.covariates)     
 	    data$id=factor(1:nrow(data))
 	    if(is.null(data$initial.age)) data$initial.age=init.ages[data$group]
@@ -546,7 +546,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
 }
 add.dummy.data=function(data,nocc,group.covariates)
 {
-  # the code here differs from marked as it is for MSJS model
+  # the code here differs from marked as it is for MSJS and MSJSU models
 	if(is.null(group.covariates))
 		number.of.groups=1
 	else
@@ -606,13 +606,13 @@ add.dummy.data=function(data,nocc,group.covariates)
 		if(number.of.groups==1)
 		{
 			data=subset(data,select=c("ch","freq",numvar,names(group.covariates)))
-			dummy.data=cbind(data.frame(ch=ch,freq=rep(0,length(ch))),matrix(t(xx),byrow=TRUE,ncol=length(numvar),nrow=length(ch)))
+			dummy.data=cbind(data.frame(ch=ch,freq=-sum(data$freq)),matrix(t(xx),byrow=TRUE,ncol=length(numvar),nrow=length(ch)))
 			names(dummy.data)=c("ch","freq",numvar)             
 		}else
 		{
 			data=subset(data,select=c("ch","freq","group",numvar[numvar!="group"],names(group.covariates)))
 			xx=subset(xx,select=!names(xx)%in%"group")
-			dummy.data=cbind(data.frame(ch=ch,freq=rep(0,length(ch))),group=factor(rep(1:number.of.groups,each=1)),
+			dummy.data=cbind(data.frame(ch=ch,freq=-sapply(split(data$freq,data$grp),sum)),group=factor(rep(1:number.of.groups,each=1)),
 					xx[rep(1:number.of.groups,each=1),,drop=FALSE])
 			names(dummy.data)=c("ch","freq","group",names(group.covariates),numvar[numvar!="group"])             
 		}
@@ -620,7 +620,7 @@ add.dummy.data=function(data,nocc,group.covariates)
 	else
 	{
 		data=subset(data,select=c("ch","freq"))
-		dummy.data=data.frame(ch=ch,freq=rep(0,length(ch)))
+		dummy.data=data.frame(ch=ch,freq=-sum(data$freq))
 		names(dummy.data)=c("ch","freq")     
 	}
 	row.names(dummy.data)=NULL

@@ -76,24 +76,24 @@ full.design.data=vector("list",length=length(parameters))
    {
 #    Compute design data for parameters other than N
      if(names(parameters)[i]!="N")
-	 {
-		 if(is.null(parameters[[i]]$time.varying))
-			 time.varying=NULL
-		 else
-			 time.varying=parameters[[i]]$time.varying
-		 if(is.null(parameters[[i]]$static))
-			 fields=NULL
-		 else
-		 {
-			 fields=parameters[[i]]$static   
-			 if(any(!fields%in%names(data$data)))stop(names(parameters)[i],": Not all fields listed in static are in data file")
-		 }
-		 full.design.data[[i]]=create.dmdf(data,parameters[[i]],time.varying=time.varying,fields=fields)
-		 if(is.null(full.design.data[[i]]))next
-	 }else
+	   {
+		   if(is.null(parameters[[i]]$time.varying))
+			   time.varying=NULL
+		   else
+			   time.varying=parameters[[i]]$time.varying
+		   if(is.null(parameters[[i]]$static))
+			   fields=NULL
+		   else
+		   {
+			   fields=parameters[[i]]$static   
+			   if(any(!fields%in%names(data$data)))stop(names(parameters)[i],": Not all fields listed in static are in data file")
+		   }
+		   full.design.data[[i]]=create.dmdf(data,parameters[[i]],time.varying=time.varying,fields=fields)
+		   if(is.null(full.design.data[[i]]))next
+	   }else
 #    Compute design data for N
-	 {
-	    if(!is.null(data$group.covariates))
+	   {
+	      if(!is.null(data$group.covariates))
         {
            xlist=split(data$data,data$data[,names(data$group.covariates),drop=FALSE])
            xlist=xlist[as.vector(sapply(xlist,function(x) nrow(x)))>0]
@@ -148,11 +148,8 @@ full.design.data=vector("list",length=length(parameters))
               full.design.data[[i]]=data.frame(N=1)
          }     
       } 
-#	  if(!toupper(data$model)%in%c("PROBITCJS","NULL"))
-#		  if("Y" %in% names(full.design.data[[i]]))
-#			  full.design.data[[i]]$Y=NULL
-	  # assign subtract.stratum and fix values to 1 unless subtract.stratum=="NONE"
-      # the code now handles parameters for 2iMSCJS where strata are in levels (eg states,areas)
+	    # assign subtract.stratum and fix values to 1 unless subtract.stratum=="NONE"
+      # the code now handles parameters for MVMSCJS where strata are in levels (eg states,areas)
       labels=data$strata.labels
 	  if(parameters[[i]]$whichlevel==1)labels=data$strata.list$states
 	  if(parameters[[i]]$whichlevel==2)
@@ -190,7 +187,7 @@ full.design.data=vector("list",length=length(parameters))
 			  } 
 		  }		  
 	  }
-	  # assign p/delta for CJS type models conditionining on first release
+	  # assign p/delta for CJS type models conditioning on first release
     if(parameters[[i]]$cjs)
 	  {
 		  full.design.data[[i]]$fix=NA
@@ -224,7 +221,7 @@ full.design.data=vector("list",length=length(parameters))
      full.design.data$Psi$fix[full.design.data$Psi$occ==max(full.design.data$Psi$occ)&
                               full.design.data$Psi$stratum!=full.design.data$Psi$tostratum]=0
    }
-   if(data$model=="MSJS")
+   if(data$model%in%c("MSJS","MSJSU"))
    {
      full.design.data$p$fix[full.design.data$p$stratum=="N"]=0
      full.design.data$S$fix=ifelse(full.design.data$S$stratum=="N",1,NA)
@@ -235,6 +232,12 @@ full.design.data=vector("list",length=length(parameters))
      full.design.data$Psi$fix[full.design.data$Psi$tostratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$stratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$occ==1&is.na(full.design.data$Psi$fix)]=0
+     if(data$model=="MSJSU")
+     {
+       full.design.data$delta$fix=ifelse(full.design.data$delta$stratum=="N",0,NA)
+       full.design.data$delta$fix[full.design.data$delta$stratum==data$strata.labels[2]]=1
+     }
+       
    }
    
    

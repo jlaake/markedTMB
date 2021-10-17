@@ -1,4 +1,4 @@
-// TMB Version: Mixed-effect Multi-State Jolly-Seber model
+// TMB Version: Mixed-effect Multi-State Jolly-Seber model with state uncertainty
 // Jeff Laake; 13 Oct 2021
 
 #include <TMB.hpp>                              // Links in the TMB libraries
@@ -474,14 +474,12 @@ Type objective_function<Type>::operator() ()
       Lglki+=log(u);    	                            // accumulate log-likelihood value
       
     }
-    if(freq(i-1)<=0)
-    {
+    if(freq(i-1)==0)
       p0=exp(Lglki);
-      g+=-freq(i-1)*log(1-p0);
-    }
     else
     {
       g-=freq(i-1)*Lglki;
+      g+=freq(i-1)*log(1-p0);
     }
     
   }  // end of loop over individuals

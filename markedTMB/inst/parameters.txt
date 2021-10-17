@@ -26,4 +26,10 @@ MSJS	p	1	-1	0	Triang	logit	~1	TRUE	FALSE	TRUE	0	FALSE	FALSE			FALSE	FALSE
 MSJS	Psi	0	-1	0	Triang	log	~1	TRUE	TRUE	FALSE	0	FALSE	FALSE	stratum,tostratum	id,occ,stratum	FALSE	FALSE
 MSJS	pent	-1	0	0	Triang	log	~1	FALSE	FALSE	TRUE	0	FALSE	FALSE			FALSE	FALSE
 MSJS	pi	-1	0	0	Triang	log	~1	TRUE	FALSE	FALSE	0	FALSE	FALSE	stratum	id,occ,stratum	FALSE	FALSE
+MSJSU	S	0	-1	1	Triang	logit	~1	TRUE	FALSE	FALSE	0	TRUE	FALSE			FALSE	FALSE
+MSJSU	p	1	-1	0	Triang	logit	~1	TRUE	FALSE	TRUE	0	FALSE	FALSE			FALSE	FALSE
+MSJSU	Psi	0	-1	0	Triang	log	~1	TRUE	TRUE	FALSE	0	FALSE	FALSE	stratum,tostratum	id,occ,stratum	FALSE	FALSE
+MSJSU	pent	-1	0	0	Triang	log	~1	FALSE	FALSE	TRUE	0	FALSE	FALSE			FALSE	FALSE
+MSJSU	pi	-1	0	0	Triang	log	~1	TRUE	FALSE	FALSE	0	FALSE	FALSE	stratum	id,occ,stratum	FALSE	FALSE
+MSJSU	delta	0	0	0	Triang	log	~1	TRUE	FALSE	FALSE	0	FALSE	FALSE	"stratum,obs.stratum"	"id,occ,stratum"	TRUE	FALSE
 

@@ -1,4 +1,4 @@
-#' Fitting function for Multistate JS models with TMB
+#' Fitting function for Multistate JS models with state uncertainty via TMB
 #' 
 #' A function for computing MLEs for a Multi-state Jolly-Seber open
 #' population capture-recapture model for processed dataframe \code{x} with
@@ -53,7 +53,7 @@
 #' \item{vcv}{var-cov matrix of betas if hessian=TRUE was set}
 #' @author Jeff Laake
 #' @examples 
-msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
+msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
 		hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,scale,
 		re=FALSE,compile=FALSE,extra.args="",clean=TRUE,getreals=FALSE, useHess=FALSE,savef=TRUE, ...)
 {
@@ -151,7 +151,7 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	pi_relist=setup_re(fullddl$pi,parameters$pi$formula)
 	
 	f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
-					ch=chmat,frst=model_data$imat$first,freq=freq,tint=model_data$time.intervals,
+					ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
 					nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
 					phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$S.indices],
 					phi_nre=phi_relist$nre,phi_krand=phi_relist$krand,phi_randDM=phi_relist$randDM,phi_randDM_i=phi_relist$randDM_i,

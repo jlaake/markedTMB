@@ -339,6 +339,12 @@ if(model=="MSJS")
   runmodel=msjs_tmb(data.proc,ddl,fullddl,dml,parameters=parameters,initial=initial,method=method,hessian=hessian,debug=debug,accumulate=accumulate,chunk_size=chunk_size,
                      refit=refit,control=control,itnmax=itnmax,scale=scale,re=re,compile=compile,extra.args=extra.args,clean=clean,getreals=getreals,useHess=useHess,savef=savef,...)
 #
+# MSJSU model
+#
+if(model=="MSJSU")
+  runmodel=msjsu_tmb(data.proc,ddl,fullddl,dml,parameters=parameters,initial=initial,method=method,hessian=hessian,debug=debug,accumulate=accumulate,chunk_size=chunk_size,
+                    refit=refit,control=control,itnmax=itnmax,scale=scale,re=re,compile=compile,extra.args=extra.args,clean=clean,getreals=getreals,useHess=useHess,savef=savef,...)
+#
 # MSLD model
 #
 if(model=="MSLD" || model=="SMSLD")
