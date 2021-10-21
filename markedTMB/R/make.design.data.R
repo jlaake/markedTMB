@@ -232,14 +232,13 @@ full.design.data=vector("list",length=length(parameters))
      full.design.data$Psi$fix[full.design.data$Psi$tostratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$stratum=="N"]=0
      full.design.data$Psi$fix[full.design.data$Psi$occ==1&is.na(full.design.data$Psi$fix)]=0
-     if(data$model=="MSJSU")
-     {
-       full.design.data$delta$fix=ifelse(full.design.data$delta$stratum=="N",0,NA)
-       full.design.data$delta$fix[full.design.data$delta$stratum==data$strata.labels[2]]=1
-     }
-       
    }
    
+   if(data$model%in%c("MSJSU"))
+   {
+     full.design.data$delta=full.design.data$delta[full.design.data$delta$stratum!="N",]
+     full.design.data$delta$order=1:nrow(full.design.data$delta)
+   }
    
    # reset rownames
    for(i in 1:length(parameters))

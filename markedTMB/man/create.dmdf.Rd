@@ -96,7 +96,7 @@ In the \code{crm} functions in this package I have used basic idea in
 allows for time-varying covariates but does not restrict each covariate to
 be time-varying and factor variables are used as such which removes the need
 to construct dummy variables; although the latter could still be used. First
-an example is in order to explain how this all works. Consider the follwing
+an example is in order to explain how this all works. Consider the following
 set of capture histories for small capture-recapture data set with 4 capture
 occasions:
 

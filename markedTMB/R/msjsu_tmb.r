@@ -88,12 +88,13 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 				p=rep(0,ncol(dml$p$fe)),
 				S=rep(0,ncol(dml$S$fe)),
 				pent=rep(0,ncol(dml$pent$fe)),
-				pi=rep(0,ncol(dml$pi$fe)))
+				pi=rep(0,ncol(dml$pi$fe)),
+				delta=rep(0,ncol(dml$delta$fe)))
 	else
 		par=set.initial(names(dml),dml,initial)$par
 # Create list of model data for optimization
-	model_data=list(S.dm=dml$S$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,pent.dm=dml$pent$fe,pi.dm=dml$pi$fe,imat=imat,S.fixed=parameters$S$fixed,
-			p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,pent.fixed=parameters$pent$fixed,pi.fixed=parameters$pi$fixed,
+	model_data=list(S.dm=dml$S$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,pent.dm=dml$pent$fe,pi.dm=dml$pi$fe,delta.dm=dml$delta$fe,imat=imat,S.fixed=parameters$S$fixed,
+			p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,pent.fixed=parameters$pent$fixed,pi.fixed=parameters$pi$fixed,delta.fixed=parameters$delta$fixed,
 			time.intervals=time.intervals)
 #   If data are to be accumulated based on ch and design matrices do so here;
 	if(accumulate)
@@ -108,7 +109,7 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 	scale=1
 	scale=set.scale(names(dml),model_data,scale)
 	model_data=scale.dm(model_data,scale)
-	setup_tmb("msjs_tmb",clean=clean)
+	setup_tmb("msjsu_tmb",clean=clean)
 
 	# S design matrix
 	phidm=as.matrix(model_data$S.dm)
@@ -149,9 +150,17 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 	  pifix[!is.na(ddl$pi$fix)]=ddl$pi$fix[!is.na(ddl$pi$fix)]
 	pi_slist=simplify_indices(cbind(pidm,pifix))
 	pi_relist=setup_re(fullddl$pi,parameters$pi$formula)
+
+	# delta design matrix
+	deltadm=as.matrix(model_data$delta.dm)
+	deltafix=rep(-1,nrow(deltadm))
+	if(!is.null(ddl$delta$fix))
+	  deltafix[!is.na(ddl$delta$fix)]=ddl$delta$fix[!is.na(ddl$delta$fix)]
+	delta_slist=simplify_indices(cbind(deltadm,deltafix))
+	delta_relist=setup_re(fullddl$delta,parameters$delta$formula)
 	
 	f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
-					ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
+					ch=chmat,frst=model_data$imat$first,freq=freq,tint=model_data$time.intervals,
 					nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
 					phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$S.indices],
 					phi_nre=phi_relist$nre,phi_krand=phi_relist$krand,phi_randDM=phi_relist$randDM,phi_randDM_i=phi_relist$randDM_i,
@@ -175,10 +184,16 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 					pifix=pifix[pi_slist$set],piindex=pi_slist$indices[ddl$pi.indices],
 					pi_nre=pi_relist$nre,pi_krand=pi_relist$krand,pi_randDM=pi_relist$randDM,pi_randDM_i=pi_relist$randDM_i,
 					pi_randIndex=pi_relist$randIndex,pi_randIndex_i=pi_relist$randIndex_i,pi_counts=pi_relist$counts,pi_idIndex=pi_relist$idIndex,
-					pi_idIndex_i=pi_relist$idIndex_i,getreals=as.integer(getreals)),
-			        parameters=list(phibeta=par$S,pbeta=par$p,psibeta=par$Psi,pentbeta=par$pent,pibeta=par$pi,log_sigma_phi=rep(-1,phi_relist$nsigma),
-					log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),log_sigma_pent=rep(-1,pent_relist$nsigma),log_sigma_pi=rep(-1,pi_relist$nsigma),u_phi=rep(0,phi_relist$nre),
-					u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre),u_pent=rep(0,pent_relist$nre),u_pi=rep(0,pi_relist$nre)),random=c("u_phi","u_p","u_psi","u_pent","u_pi"),DLL="msjs_tmb")
+					pi_idIndex_i=pi_relist$idIndex_i,
+					nrowdelta=length(delta_slist$set),	deltadm=deltadm[delta_slist$set,,drop=FALSE],
+					deltafix=deltafix[delta_slist$set],deltaindex=delta_slist$indices[ddl$delta.indices],
+					delta_nre=delta_relist$nre,delta_krand=delta_relist$krand,delta_randDM=delta_relist$randDM,delta_randDM_i=delta_relist$randDM_i,
+					delta_randIndex=delta_relist$randIndex,delta_randIndex_i=delta_relist$randIndex_i,delta_counts=delta_relist$counts,delta_idIndex=delta_relist$idIndex,
+					delta_idIndex_i=delta_relist$idIndex_i,
+					getreals=as.integer(getreals)),
+					parameters=list(phibeta=par$S,pbeta=par$p,psibeta=par$Psi,pentbeta=par$pent,pibeta=par$pi,deltabeta=par$delta,log_sigma_phi=rep(-1,phi_relist$nsigma),
+					log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),log_sigma_pent=rep(-1,pent_relist$nsigma),log_sigma_pi=rep(-1,pi_relist$nsigma),log_sigma_delta=rep(-1,delta_relist$nsigma),u_phi=rep(0,phi_relist$nre),
+					u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre),u_pent=rep(0,pent_relist$nre),u_pi=rep(0,pi_relist$nre),u_delta=rep(0,delta_relist$nre)),random=c("u_phi","u_p","u_psi","u_pent","u_pi","u_delta"),DLL="msjsu_tmb")
 	cat("\nrunning TMB program\n")                         
 	if(method=="nlminb")
 	{
@@ -210,13 +225,13 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 	  }
 	  lnl=mod$value
 	}
-	fixed.npar=ncol(phidm)+ncol(pdm)+ncol(psidm)+ncol(pentdm)+ncol(pidm)
+	fixed.npar=ncol(phidm)+ncol(pdm)+ncol(psidm)+ncol(pentdm)+ncol(pidm)+ncol(deltadm)
 	par_summary=sdreport(f,getJointPrecision=getreals&hessian)
 	S_re=NULL
 	p_re=NULL
 	Psi_re=NULL
 	pent_re=NULL
-	if(p_relist$nre+phi_relist$nre+psi_relist$nre+pent_relist$nre+pi_relist$nre>0)
+	if(p_relist$nre+phi_relist$nre+psi_relist$nre+pent_relist$nre+pi_relist$nre+delta_relist$nre>0)
 	{
 	  random_values=par_summary$par.random
 	 	par=par_summary$par.fixed[1:fixed.npar]
@@ -258,6 +273,13 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 		  sigma=c(sigma,list(pi_logsigma=pi_sigma))
 		  pi_re=split(random_values[names(random_values)%in%"u_pi"],rep(1:length(pi_relist$nre_byeffect),pi_relist$nre_byeffect))
 		} 
+		if(delta_relist$krand>0)
+		{
+		  delta_sigma=cjs.beta.sigma[(phi_relist$krand+p_relist$krand+psi_relist$krand+pent_relist$krand+pi_relist$krand+1):(phi_relist$krand+p_relist$krand+psi_relist$krand+pent_relist$krand+pi_relist$krand+delta_relist$krand)]
+		  names(delta_sigma)=colnames(delta_relist$randDM)
+		  sigma=c(sigma,list(delta_logsigma=delta_sigma))
+		  delta_re=split(random_values[names(random_values)%in%"u_delta"],rep(1:length(delta_relist$nre_byeffect),delta_relist$nre_byeffect))
+		} 
 		cjs.beta=c(cjs.beta.fixed,sigma)
 		beta.vcv=par_summary$cov.fixed
 		colnames(beta.vcv)=names(unlist(cjs.beta))
@@ -279,8 +301,8 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 	{
 		reals=split(par_summary$value,names(par_summary$value))
 		reals.se=split(par_summary$sd,names(par_summary$value))	
-		names(reals)=c("p","S","Psi","pent","pi")
-		names(reals.se)=c("p","S","Psi","pent","pi")
+		names(reals)=c("p","S","Psi","pent","pi","delta")
+		names(reals.se)=c("p","S","Psi","pent","pi","delta")
 		reals$S[fullddl$S$Time<fullddl$S$Cohort]=NA
 		reals.se$S[fullddl$S$Time<fullddl$S$Cohort]=NA
 		reals$p[fullddl$p$Time<fullddl$p$Cohort]=NA

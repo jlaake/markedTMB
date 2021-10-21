@@ -400,6 +400,7 @@ Type objective_function<Type>::operator() ()
       ADREPORT(p);
       ADREPORT(psi);
       ADREPORT(pent);
+      ADREPORT(pi);
     }
     
     //  compute transition matrices for each occasion
