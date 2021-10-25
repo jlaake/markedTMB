@@ -76,12 +76,9 @@ msjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,i
 	freq=NULL
 	if(!is.null(x$data$freq))freq=x$data$freq
 # get first and last vectors, loc and chmat with process.ch and store in imat
-	ch=x$data$ch
-	imat=process.ch(ch,freq,all=FALSE)
-	chmat=matrix((unlist(strsplit(ch,","))),byrow=TRUE,ncol=nocc,nrow=length(ch))
-	for(nlabel in 1:length(strata.labels))
-		chmat=t(apply(chmat,1,sub,pattern=strata.labels[nlabel],replacement=nlabel))
-	chmat=t(apply(chmat,1,function(x) as.numeric(x)))
+	imat=process.ch(x$data$ch,freq,all=FALSE)
+	chmat=t(sapply(strsplit(x$data$ch,","),function(z) as.numeric(factor(z,levels=x$ObsLevels))))-1
+	
 # Use specified initial values or create if null
 	if(is.null(initial))
 		par=list(Psi=rep(0,ncol(dml$Psi$fe)),

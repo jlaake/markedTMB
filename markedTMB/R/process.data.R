@@ -189,8 +189,8 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    {
      if(is.null(strata.labels)&!model%in%c("HMMCJS2TL","HMMCJS1TL"))
 	      stop("\nstrata.labels must be specified for stratified models\n")
-     if(model=="MSLD" & "1" %in%strata.labels)
-        stop("1 cannot be used as a stratum label because it is reserved for a recovery in the MSLD model")
+     if(model=="MSLD" & any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
+         stop("For MSLD model strata labels must be alpha characters. Not numeric.")
    }
    if(model.list$IShmm)
    {
@@ -206,7 +206,11 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    {
 	   # Get unique ch values and use as strata.labels unless they are specified   
 	   if(model=="MSLD")
+	   {
 	     inp.strata.labels=sort(ch.values[!(ch.values %in% c("0","1"))])
+	     if(any(!is.na(suppressWarnings(as.numeric(inp.strata.labels)))))
+	        stop("For MSLD model strata labels must be alpha characters. Not numeric.")
+	   }
 	   else
 	     inp.strata.labels=sort(ch.values[!(ch.values %in% c("0"))])
 	   if(substr(model,1,4)%in%c("HMMU","MVMS"))
