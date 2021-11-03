@@ -155,7 +155,10 @@ msjsu_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
 	delta_slist=simplify_indices(cbind(deltadm,deltafix))
 	delta_relist=setup_re(fullddl$delta,parameters$delta$formula)
 	
-	f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
+	# number of groups
+	nG=1
+	if(!is.null(x$data$group))nG=length(levels(x$data$group))
+	f = MakeADFun(data=list(nG=nG,n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels),
 					ch=chmat,frst=model_data$imat$first,freq=freq,tint=model_data$time.intervals,
 					nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
 					phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$S.indices],

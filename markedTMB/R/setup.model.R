@@ -72,7 +72,7 @@ setupHMM=function(model_def,model,strata.labels)
   {
     model_def$hmm$strata.labels=c("N",strata.labels)
     model_def$hmm$m=length(strata.labels)+2
-    model_def$hmm$ObsLevels=c(0,model_def$hmm$strata.labels,"u")
+    model_def$hmm$ObsLevels=c(0,model_def$hmm$strata.labels,"U")
   }
   if(toupper(model)=="MVMSCJS")
 	{

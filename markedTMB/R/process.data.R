@@ -213,7 +213,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
 	   }
 	   else
 	     inp.strata.labels=sort(ch.values[!(ch.values %in% c("0"))])
-	   if(substr(model,1,4)%in%c("HMMU","MVMS"))
+	   if(substr(model,1,4)==c("MVMS") | model=="MSJSU")
 	   {
 		   if(substr(model,1,4)=="MVMS")
 			   uindex=grep("u",inp.strata.labels)
