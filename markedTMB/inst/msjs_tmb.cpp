@@ -6,6 +6,7 @@
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
+  DATA_INTEGER(nG);                           // number of groups in data for abundance estimation
   DATA_INTEGER(n);                            // number of capture histories
   DATA_INTEGER(m);                            // number of capture occasions
   DATA_INTEGER(nS);                           // number of states excluding death state
@@ -131,6 +132,8 @@ Type objective_function<Type>::operator() ()
   array<Type> dmat(m-1,nS+1,nS+1);    // observation probability matrices for individual i
   array<double> allgamma(n,m-1,nS+1,nS+1);   // transition probability matrices for all individuals
   array<double> alldmat(n,m-1,nS+1,nS+1);      // observation probability matrices  for all individuals
+  array<double> allp0(nG);            // probability of never seeing an animal (all 0 capture history) in each group
+  array<double> allN(nG);             // abundance of animals in each group
   Type u;                             // sum of state probabilities
   vector<Type> pS(nS+1);              // update vector for prob of being in state j=1,nS + death
   vector<Type> S(nS+1);               // prob of being in state j=1,nS + death for each occasion
@@ -478,7 +481,9 @@ Type objective_function<Type>::operator() ()
     if(freq(i-1)<=0)
     {
       p0=exp(Lglki);
+      allp0(i-1)=asDouble(p0);
       g+=-freq(i-1)*log(1-p0);
+      allN(i-1)=asDouble(-freq(i-1)/(1-p0));
     }
     else
     {
@@ -487,6 +492,8 @@ Type objective_function<Type>::operator() ()
     
   }  // end of loop over individuals
   
+  REPORT(allp0);
+  REPORT(allN);
   REPORT(alldmat);
   REPORT(allgamma);
   return g;
