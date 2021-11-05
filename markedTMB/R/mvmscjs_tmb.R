@@ -315,8 +315,6 @@
 #' @param itnmax maximum number of iterations
 #' @param control control string for optimization functions
 #' @param re currently ignored
-#' @param compile if TRUE forces re-compilation of cpp file
-#' @param clean if TRUE, deletes the cpp and dll for tmb if use.tmb=TRUE
 #' @param sup supplemental index values for constructing mvms model; these are defined in the crm code
 #' @param getreals if TRUE, compute real values and std errors for TMB models; may want to set as FALSE until model selection is complete
 #' @param real.ids vector of id values for which real parameters should be output with std error information
@@ -339,7 +337,7 @@
 #' @references Johnson, D. S., J. L. Laake, S. R. Melin, and DeLong, R.L. 2015. Multivariate State Hidden Markov Models for Mark-Recapture Data. 31:233-244.
 mvmscjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
                      hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,
-                     re=FALSE,compile=FALSE,clean=TRUE,sup,getreals=FALSE,real.ids=NULL,useHess=FALSE,optimize=TRUE,vcv=FALSE,savef=TRUE,...)
+                     re=FALSE,sup,getreals=FALSE,real.ids=NULL,useHess=FALSE,optimize=TRUE,vcv=FALSE,savef=TRUE,...)
 {
   accumulate=FALSE
   nocc=x$nocc
@@ -408,8 +406,6 @@ mvmscjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRU
   # setup tpl to be multistate.tpl
   if(re)
     stop("random effect portion not completed for this model")
-  # setup tmb exe and cleanup old files
-  setup_tmb("mvms_tmb",clean=clean,debug=debug)
   
   # Number of observations
   n=length(model_data$imat$freq)
