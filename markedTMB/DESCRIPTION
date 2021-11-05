@@ -28,6 +28,7 @@ Imports:
     knitr,
     kableExtra,
     bookdown,
+    mvtnorm,
     TMB (>= 1.7.22)
 Suggests:
     ggplot2

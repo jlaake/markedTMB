@@ -10,6 +10,7 @@
 # through the 'TMB_FLAGS' argument below, e.g.,
 #
 ## TMB_FLAGS = -I"../../inst/include" # add include directory inst/include
+TMB_FLAGS = '-Wno-ignored-attributes -Wno-unused-variable'
 #
 # --- TMB-specific compiling directives below ---
 

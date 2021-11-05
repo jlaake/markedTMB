@@ -219,7 +219,7 @@ mscjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,
                   u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre))
   
   f = MakeADFun(
-    data=list(model="multistate", tmb_data),
+    data=append(list(model="multistate"), tmb_data),
     parameters=tmb_par,
     random=c("u_phi","u_p","u_psi"),
     DLL="markedTMB_TMBExports"
