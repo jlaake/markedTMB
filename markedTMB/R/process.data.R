@@ -189,7 +189,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    {
      if(is.null(strata.labels)&!model%in%c("HMMCJS2TL","HMMCJS1TL"))
 	      stop("\nstrata.labels must be specified for stratified models\n")
-     if(model=="MSLD" & any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
+     if(model=="MSLD" && any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
          stop("For MSLD model strata labels must be alpha characters. Not numeric.")
    }
    if(model.list$IShmm)
