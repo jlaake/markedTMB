@@ -10,3 +10,4 @@
 *.o
 markedTMB_TMBExports.so
 /testing
+*.so
