@@ -9,3 +9,4 @@
 .DS_Store
 *.o
 markedTMB_TMBExports.so
+/testing
