@@ -4,3 +4,6 @@
 .Ruserdata
 /markedTMB.Rproj
 /.DS_Store
+/markedTMB/src/markedTMB.so
+/testing
+.DS_Store
