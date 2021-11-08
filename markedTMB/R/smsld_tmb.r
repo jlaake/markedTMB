@@ -33,9 +33,7 @@
 #' @param control control string for optimization functions
 #' @param scale vector of scale values for parameters
 #' @param re if TRUE creates random effect model admbcjsre.tpl and runs admb optimizer
-#' @param compile if TRUE forces re-compilation of tpl file
 #' @param extra.args optional character string that is passed to tmb 
-#' @param clean if TRUE, deletes the dll and recompiles 
 #' @param getreals if TRUE, compute real values and std errors for TMB models; may want to set as FALSE until model selection is complete
 #' @param useHess if TRUE, the TMB hessian function is used for optimization; using hessian is typically slower with many parameters but can result in a better solution
 #' @param savef if TRUE, save optimization function in model for reporting
@@ -53,7 +51,7 @@
 #' @author Jeff Laak
 smsld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
                    hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,scale,
-                   re=FALSE,compile=FALSE,extra.args="",clean=FALSE,getreals=FALSE, useHess=FALSE,savef=FALSE,...)
+                   re=FALSE,extra.args="",getreals=FALSE, useHess=FALSE,savef=FALSE,...)
 {
   # load fullddl
   fullddl=NULL
@@ -114,7 +112,6 @@ smsld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=
   scale=1
   scale=set.scale(names(dml),model_data,scale)
   model_data=scale.dm(model_data,scale)
-  setup_tmb("msld_tmb",clean=clean)
   
   # S design matrix
   phidm=as.matrix(model_data$S.dm)

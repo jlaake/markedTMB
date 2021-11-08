@@ -21,9 +21,7 @@ msld_tmb(
   control = NULL,
   scale,
   re = FALSE,
-  compile = FALSE,
   extra.args = "",
-  clean = FALSE,
   getreals = FALSE,
   useHess = FALSE,
   savef = TRUE,
@@ -71,11 +69,7 @@ histories; amount used is 8*chunk_size/1e6 MB (default 80MB)}
 
 \item{re}{if TRUE creates random effect model admbcjsre.tpl and runs admb optimizer}
 
-\item{compile}{if TRUE forces re-compilation of tpl file}
-
 \item{extra.args}{optional character string that is passed to tmb}
-
-\item{clean}{if TRUE, deletes the dll and recompiles}
 
 \item{getreals}{if TRUE, compute real values and std errors for TMB models; may want to set as FALSE until model selection is complete}
 

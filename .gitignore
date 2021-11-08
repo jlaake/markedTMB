@@ -5,5 +5,8 @@
 /markedTMB.Rproj
 /.DS_Store
 /markedTMB/src/markedTMB.so
-/testing
+/markedTMB/src/TMB/markedTMB_TMBExports.so
 .DS_Store
+*.o
+markedTMB_TMBExports.so
+/testing

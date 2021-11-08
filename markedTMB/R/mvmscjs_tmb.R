@@ -315,8 +315,6 @@
 #' @param itnmax maximum number of iterations
 #' @param control control string for optimization functions
 #' @param re currently ignored
-#' @param compile if TRUE forces re-compilation of cpp file
-#' @param clean if TRUE, deletes the cpp and dll for tmb if use.tmb=TRUE
 #' @param sup supplemental index values for constructing mvms model; these are defined in the crm code
 #' @param getreals if TRUE, compute real values and std errors for TMB models; may want to set as FALSE until model selection is complete
 #' @param real.ids vector of id values for which real parameters should be output with std error information
@@ -338,327 +336,329 @@
 #' @author Jeff Laake
 #' @references Johnson, D. S., J. L. Laake, S. R. Melin, and DeLong, R.L. 2015. Multivariate State Hidden Markov Models for Mark-Recapture Data. 31:233-244.
 mvmscjs_tmb=function(x,ddl,fullddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
-		hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,
-		re=FALSE,compile=FALSE,clean=TRUE,sup,getreals=FALSE,real.ids=NULL,useHess=FALSE,optimize=TRUE,vcv=FALSE,savef=TRUE,...)
+                     hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,
+                     re=FALSE,sup,getreals=FALSE,real.ids=NULL,useHess=FALSE,optimize=TRUE,vcv=FALSE,savef=TRUE,...)
 {
-	accumulate=FALSE
-	nocc=x$nocc
-	xstart=x$start
-#  Time intervals has been changed to a matrix (columns=intervals,rows=animals)
-#  so that the initial time interval can vary by animal; use x$intervals if none are in ddl$Phi
-	if(!is.null(ddl$Phi$time.interval))
-		time.intervals=matrix(fullddl$Phi$time.interval[fullddl$Phi$stratum==x$strata.labels[1]],nrow(x$data),ncol=nocc-1,byrow=TRUE)
-	else
-	if(is.vector(x$time.intervals))
-		time.intervals=matrix(x$time.intervals,nrow=nrow(x$data),ncol=nocc-1,byrow=TRUE)
-	else
-		time.intervals=x$time.intervals
-	chmat=x$ehmat
-#  Store data from x$data into x
-	strata.labels=x$strata.labels
-	uS=x$unobserved
-#	x=x$data
-#  set default frequencies if not used
-	freq=NULL
-	if(!is.null(x$freq))freq=x$data$freq
-#  get first and last vectors, loc and chmat with process.ch and store in imat
-	ch=x$data$ch
-	imat=process.ch(ch,freq,all=FALSE)
-#  Use specified initial values or create if null
-	if(is.null(initial))
-	{
-		par=list(Phi=rep(0,ncol(dml$Phi$fe)),
-				p=rep(0,ncol(dml$p$fe)),
-				Psi=rep(0,ncol(dml$Psi$fe)))
-		if(ncol(dml$pi$fe)>0)
-		  par$pi=rep(0,ncol(dml$pi$fe))
-		else
-		  par$pi=vector("numeric",length=0)
-		if(ncol(dml$delta$fe)>0)
-		  par$delta=rep(0,ncol(dml$delta$fe))
-		else
-		  par$delta=vector("numeric",length=0)
-	}
-	else
-		par=set.initial(names(dml),dml,initial)$par
-#  Create list of model data for optimization
-	model_data=list(Phi.dm=dml$Phi$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,delta.dm=dml$delta$fe,pi.dm=dml$pi$fe,imat=imat,Phi.fixed=parameters$Phi$fixed,
-			p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,delta.fixed=parameters$delta$fixed,
-			pi.fixed=parameters$pi$fixed,time.intervals=time.intervals)
-#   If data are to be accumulated based on ch and design matrices do so here;
-	if(accumulate)
-	{
-		cat("Accumulating capture histories based on design. This can take awhile.\n")
-		flush.console()
-		model_data.save=model_data
-		#model_data=mscjs.accumulate(x,model_data,nocc,freq,chunk_size=chunk_size)
-	}else
-		model_data.save=model_data
-#   Create links  -- not used at present; idea here is to use sin links for parameters where you can
-#   Phi.links=create.links(Phi.dm)
-#   Phi.links=which(Phi.links==1)
-#   p.links=create.links(p.dm)
-#   p.links=which(p.links==1)
-#  Scale the design matrices and parameters with either input scale or computed scale
-#  scaling set to 1 but call needed to change dm to regular matrix; if scale used at some point
-#  need to scale hessian after fitting
-	scale=1
-	scale=set.scale(names(dml),model_data,scale)
-	model_data=scale.dm(model_data,scale)
-	# setup tpl to be multistate.tpl
-	if(re)
-		stop("random effect portion not completed for this model")
-	# setup tmb exe and cleanup old files
-	setup_tmb("mvms_tmb",clean=clean,debug=debug)
-
-	# Number of observations
-	n=length(model_data$imat$freq)
-	# Number of occasions
-	nocc=model_data$imat$nocc
-	# Number of states
-	nS=length(strata.labels)
-	# Number of possible observations
+  accumulate=FALSE
+  nocc=x$nocc
+  xstart=x$start
+  #  Time intervals has been changed to a matrix (columns=intervals,rows=animals)
+  #  so that the initial time interval can vary by animal; use x$intervals if none are in ddl$Phi
+  if(!is.null(ddl$Phi$time.interval))
+    time.intervals=matrix(fullddl$Phi$time.interval[fullddl$Phi$stratum==x$strata.labels[1]],nrow(x$data),ncol=nocc-1,byrow=TRUE)
+  else
+    if(is.vector(x$time.intervals))
+      time.intervals=matrix(x$time.intervals,nrow=nrow(x$data),ncol=nocc-1,byrow=TRUE)
+  else
+    time.intervals=x$time.intervals
+  chmat=x$ehmat
+  #  Store data from x$data into x
+  strata.labels=x$strata.labels
+  uS=x$unobserved
+  #	x=x$data
+  #  set default frequencies if not used
+  freq=NULL
+  if(!is.null(x$freq))freq=x$data$freq
+  #  get first and last vectors, loc and chmat with process.ch and store in imat
+  ch=x$data$ch
+  imat=process.ch(ch,freq,all=FALSE)
+  #  Use specified initial values or create if null
+  if(is.null(initial))
+  {
+    par=list(Phi=rep(0,ncol(dml$Phi$fe)),
+             p=rep(0,ncol(dml$p$fe)),
+             Psi=rep(0,ncol(dml$Psi$fe)))
+    if(ncol(dml$pi$fe)>0)
+      par$pi=rep(0,ncol(dml$pi$fe))
+    else
+      par$pi=vector("numeric",length=0)
+    if(ncol(dml$delta$fe)>0)
+      par$delta=rep(0,ncol(dml$delta$fe))
+    else
+      par$delta=vector("numeric",length=0)
+  }
+  else
+    par=set.initial(names(dml),dml,initial)$par
+  #  Create list of model data for optimization
+  model_data=list(Phi.dm=dml$Phi$fe,p.dm=dml$p$fe,Psi.dm=dml$Psi$fe,delta.dm=dml$delta$fe,pi.dm=dml$pi$fe,imat=imat,Phi.fixed=parameters$Phi$fixed,
+                  p.fixed=parameters$p$fixed,Psi.fixed=parameters$Psi$fixed,delta.fixed=parameters$delta$fixed,
+                  pi.fixed=parameters$pi$fixed,time.intervals=time.intervals)
+  #   If data are to be accumulated based on ch and design matrices do so here;
+  if(accumulate)
+  {
+    cat("Accumulating capture histories based on design. This can take awhile.\n")
+    flush.console()
+    model_data.save=model_data
+    #model_data=mscjs.accumulate(x,model_data,nocc,freq,chunk_size=chunk_size)
+  }else
+    model_data.save=model_data
+  #   Create links  -- not used at present; idea here is to use sin links for parameters where you can
+  #   Phi.links=create.links(Phi.dm)
+  #   Phi.links=which(Phi.links==1)
+  #   p.links=create.links(p.dm)
+  #   p.links=which(p.links==1)
+  #  Scale the design matrices and parameters with either input scale or computed scale
+  #  scaling set to 1 but call needed to change dm to regular matrix; if scale used at some point
+  #  need to scale hessian after fitting
+  scale=1
+  scale=set.scale(names(dml),model_data,scale)
+  model_data=scale.dm(model_data,scale)
+  # setup tpl to be multistate.tpl
+  if(re)
+    stop("random effect portion not completed for this model")
+  
+  # Number of observations
+  n=length(model_data$imat$freq)
+  # Number of occasions
+  nocc=model_data$imat$nocc
+  # Number of states
+  nS=length(strata.labels)
+  # Number of possible observations
   nobs=length(sup$obslevels)
-
-	# frequency of capture history
-	if(any(model_data$imat$freq!=1)&re)stop("\n cannot use random effects with frequency >1")
-
-	# Phi design matrix
-    # zero out rows with fixed parameters and remove any unneeded columns
-    if(!is.null(ddl$Phi$fix))
-        model_data$Phi.dm[!is.na(ddl$Phi$fix),]=0
-    if(ncol(model_data$Phi.dm)!=0)
-    {
-	    select=vector("logical",length=ncol(model_data$Phi.dm))
-	    for (i in 1:ncol(model_data$Phi.dm))
-	    	select[i]=any(model_data$Phi.dm[,i]!=0)
-	    model_data$Phi.dm=model_data$Phi.dm[,select,drop=FALSE]
-    }
-	phidm=model_data$Phi.dm
-	phifix=rep(-1,nrow(phidm))
-	if(!is.null(ddl$Phi$fix))
-		phifix[!is.na(ddl$Phi$fix)]=ddl$Phi$fix[!is.na(ddl$Phi$fix)]
-	phi_slist=simplify_indices(cbind(as.matrix(phidm),phifix))
-
-	# p design matrix
-    # zero out rows with fixed parameters and remove any unneeded columns
-    if(!is.null(ddl$p$fix))
-       model_data$p.dm[!is.na(ddl$p$fix),]=0
-    if(ncol(model_data$p.dm)!=0)
-    {
-	    select=vector("logical",length=ncol(model_data$p.dm))
-	    for (i in 1:ncol(model_data$p.dm))
-	    	select[i]=any(model_data$p.dm[,i]!=0)
-	    model_data$p.dm=model_data$p.dm[,select,drop=FALSE]
-    }
-	pdm=model_data$p.dm
-	pfix=rep(-1,nrow(pdm))
-	if(!is.null(ddl$p$fix))
-		pfix[!is.na(ddl$p$fix)]=ddl$p$fix[!is.na(ddl$p$fix)]
-	p_slist=simplify_indices(cbind(pdm,pfix))
-
-	# Psi design matrix
-	# zero out subtracted stratum (fixed) and remove any unneeded columns
-    if(!is.null(ddl$Psi$fix))
-	   model_data$Psi.dm[!is.na(ddl$Psi$fix),]=0
-	if(ncol(model_data$Psi.dm)!=0)
-	{
-		select=vector("logical",length=ncol(model_data$Psi.dm))
-		for (i in 1:ncol(model_data$Psi.dm))
-			select[i]=any(model_data$Psi.dm[,i]!=0)
-		model_data$Psi.dm=model_data$Psi.dm[,select,drop=FALSE]
-	}
-	psidm=model_data$Psi.dm
-	psifix=rep(-1,nrow(psidm))
-	if(!is.null(ddl$Psi$fix))
-		psifix[!is.na(ddl$Psi$fix)]=ddl$Psi$fix[!is.na(ddl$Psi$fix)]
-	psi_slist=simplify_indices(cbind(psidm,psifix))
-
-	# delta design matrix
+  
+  # frequency of capture history
+  if(any(model_data$imat$freq!=1)&re)stop("\n cannot use random effects with frequency >1")
+  
+  # Phi design matrix
+  # zero out rows with fixed parameters and remove any unneeded columns
+  if(!is.null(ddl$Phi$fix))
+    model_data$Phi.dm[!is.na(ddl$Phi$fix),]=0
+  if(ncol(model_data$Phi.dm)!=0)
+  {
+    select=vector("logical",length=ncol(model_data$Phi.dm))
+    for (i in 1:ncol(model_data$Phi.dm))
+      select[i]=any(model_data$Phi.dm[,i]!=0)
+    model_data$Phi.dm=model_data$Phi.dm[,select,drop=FALSE]
+  }
+  phidm=model_data$Phi.dm
+  phifix=rep(-1,nrow(phidm))
+  if(!is.null(ddl$Phi$fix))
+    phifix[!is.na(ddl$Phi$fix)]=ddl$Phi$fix[!is.na(ddl$Phi$fix)]
+  phi_slist=simplify_indices(cbind(as.matrix(phidm),phifix))
+  
+  # p design matrix
+  # zero out rows with fixed parameters and remove any unneeded columns
+  if(!is.null(ddl$p$fix))
+    model_data$p.dm[!is.na(ddl$p$fix),]=0
+  if(ncol(model_data$p.dm)!=0)
+  {
+    select=vector("logical",length=ncol(model_data$p.dm))
+    for (i in 1:ncol(model_data$p.dm))
+      select[i]=any(model_data$p.dm[,i]!=0)
+    model_data$p.dm=model_data$p.dm[,select,drop=FALSE]
+  }
+  pdm=model_data$p.dm
+  pfix=rep(-1,nrow(pdm))
+  if(!is.null(ddl$p$fix))
+    pfix[!is.na(ddl$p$fix)]=ddl$p$fix[!is.na(ddl$p$fix)]
+  p_slist=simplify_indices(cbind(pdm,pfix))
+  
+  # Psi design matrix
+  # zero out subtracted stratum (fixed) and remove any unneeded columns
+  if(!is.null(ddl$Psi$fix))
+    model_data$Psi.dm[!is.na(ddl$Psi$fix),]=0
+  if(ncol(model_data$Psi.dm)!=0)
+  {
+    select=vector("logical",length=ncol(model_data$Psi.dm))
+    for (i in 1:ncol(model_data$Psi.dm))
+      select[i]=any(model_data$Psi.dm[,i]!=0)
+    model_data$Psi.dm=model_data$Psi.dm[,select,drop=FALSE]
+  }
+  psidm=model_data$Psi.dm
+  psifix=rep(-1,nrow(psidm))
+  if(!is.null(ddl$Psi$fix))
+    psifix[!is.na(ddl$Psi$fix)]=ddl$Psi$fix[!is.na(ddl$Psi$fix)]
+  psi_slist=simplify_indices(cbind(psidm,psifix))
+  
+  # delta design matrix
   if(!is.null(ddl$delta$fix))
-	    model_data$delta.dm[!is.na(ddl$delta$fix),]=0
-	if(ncol(model_data$delta.dm)!=0)
-	{
-		select=vector("logical",length=ncol(model_data$delta.dm))
-		for (i in 1:ncol(model_data$delta.dm))
-			select[i]=any(model_data$delta.dm[,i]!=0)
-		model_data$delta.dm=model_data$delta.dm[,select,drop=FALSE]
-	}
-    deltadm=model_data$delta.dm
-    deltafix=rep(-1,nrow(deltadm))
-    if(!is.null(ddl$delta$fix))
-	   deltafix[!is.na(ddl$delta$fix)]=ddl$delta$fix[!is.na(ddl$delta$fix)]
-    delta_slist=simplify_indices(cbind(deltadm,deltafix))
-
-	# pi design matrix
-    if(!is.null(ddl$pi$fix))
-	    model_data$pi.dm[!is.na(ddl$pi$fix),]=0
-	if(ncol(model_data$pi.dm)!=0)
-	{
-		select=vector("logical",length=ncol(model_data$pi.dm))
-		for (i in 1:ncol(model_data$pi.dm))
-			select[i]=any(model_data$pi.dm[,i]!=0)
-		model_data$pi.dm=model_data$pi.dm[,select,drop=FALSE]
-	}
-    pidm=model_data$pi.dm
-    pifix=rep(-1,nrow(pidm))
-    if(!is.null(ddl$pi$fix))
-	   pifix[!is.na(ddl$pi$fix)]=ddl$pi$fix[!is.na(ddl$pi$fix)]
-    pi_slist=simplify_indices(cbind(pidm,pifix))
-
-	# unkinit set to 0 unless all unknown or all known at initial release;
-	# when unkinit=0, delta is applied in dmat
-	unkinit=as.numeric(all(is.na(xstart[,1])) | all(!is.na(xstart[,1])))
-
-	ids=vector("integer",length=n)
-	if(!is.null(real.ids))
-	{
-	  if(all(real.ids>=1 &real.ids<=n))
-	    ids[real.ids]=1
-	  else
-	    stop("invalid values for real.ids")
-	} else
-	  ids=rep(1,n)
-
-
-	f = MakeADFun(data=list(n=n,m=nocc,nS=nS, nobs=nobs,ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,
-	                        tint=model_data$time.intervals,nrowphi=length(phi_slist$set),phidm=phidm[phi_slist$set,,drop=FALSE],
-	                        phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$Phi.indices],
-	                        nrowp=length(p_slist$set),pdm=pdm[p_slist$set,,drop=FALSE],
-	                        pfix=pfix[p_slist$set],pindex=p_slist$indices[ddl$p.indices],
-	                        npos=nrow(sup$indices_forp),ipos=sup$indices_forp,
-	                        nrowpsi=length(psi_slist$set),	psidm=psidm[psi_slist$set,,drop=FALSE],
-	                        psifix=psifix[psi_slist$set],psiindex=psi_slist$indices[ddl$Psi.indices],
-	                        nrowd=length(delta_slist$set),	ddm=deltadm[delta_slist$set,,drop=FALSE],
-	                        dfix=deltafix[delta_slist$set],dindex=delta_slist$indices[ddl$delta.indices],
-	                        nrowpi=length(pi_slist$set),	pidm=pidm[pi_slist$set,,drop=FALSE],
-	                        pifix=pifix[pi_slist$set],piindex=pi_slist$indices[ddl$pi.indices],initknown=unkinit,debug=as.numeric(debug),
-	                        getreals=as.integer(getreals),ids=ids),
-  	                      parameters=list(phibeta=par$Phi,pbeta=par$p,dbeta=par$delta,psibeta=par$Psi,pibeta=par$pi),DLL="mvms_tmb")
-	if(optimize)
-	{
-	  if(debug)cat("\nrunning TMB program\n")
-	  if(method=="nlminb")
-	  {
-	    if(!useHess)
-	      if(debug)
-	        mod=nlminb(f$par,f$fn,f$gr,control=control)
-	      else
-	        capture.output(mod<-nlminb(f$par,f$fn,f$gr,control=control))
-	    else
-	      if(debug)
-	          mod=nlminb(f$par,f$fn,f$gr,f$he,control=control)
-	      else
-	        capture.output(mod<-nlminb(f$par,f$fn,f$gr,f$he,control=control))
-
-	    lnl=mod$objective
-	    par=mod$par
-	    convergence=mod$convergence
-	  } else
-	  {
-	    if(method=="SANN")
-	    {
-	      control$maxit=itnmax
-	      mod=optim(f$par,f$fn,hessian=FALSE,control=control,itnmax=itnmax,method=method,...)
-	      par=mod$par
-	      convergence=mod$convergence
-	    } else
-	    {
-	      control$starttests=FALSE
-	      if(!useHess)
-	        if(debug)
-	          mod=optimx(f$par,f$fn,f$gr,hessian=FALSE,control=control,itnmax=itnmax,method=method)
-	        else
-	          capture.output(mod<-optimx(f$par,f$fn,f$gr,hessian=FALSE,control=control,itnmax=itnmax,method=method))
-	      else
-	        if(debug)
-	           mod=optimx(f$par,f$fn,f$gr,f$he,hessian=FALSE,control=control,itnmax=itnmax,method=method)
-	        else
-	           capture.output(mod<-optimx(f$par,f$fn,f$gr,f$he,hessian=FALSE,control=control,itnmax=itnmax,method=method))
-	        par <- coef(mod, order="value")[1, ]
-	        mod=as.list(summary(mod, order="value")[1, ])
-	        convergence=mod$convcode
-	     }
-	     lnl=mod$value
-	  }
-	} else
-	{
-	  lnl=f$fn(f$par)
-	  mod=NULL
-	  convergence=0
-	}
-	if(getreals)
-	  if(!debug)
-	    capture.output(par_summary<-sdreport(f,getReportCovariance=vcv))
-	  else
-	    par_summary<-sdreport(f,getReportCovariance=vcv)
-	res=mod
-	cjs.beta=unscale.par(par,scale)
-	if(hessian)
-	{
-	  if(debug)message("Inverting hessian...")
-	  beta.vcv=solvecov(f$he(par))$inv
-	  colnames(beta.vcv)=names(unlist(cjs.beta))
-	  rownames(beta.vcv)=colnames(beta.vcv)
-	} else
-	  beta.vcv=NULL
-	# Create results list
-	if(getreals)
-	{
-	  reals=split(par_summary$value,names(par_summary$value))
-	  reals.se=split(par_summary$sd,names(par_summary$value))
+    model_data$delta.dm[!is.na(ddl$delta$fix),]=0
+  if(ncol(model_data$delta.dm)!=0)
+  {
+    select=vector("logical",length=ncol(model_data$delta.dm))
+    for (i in 1:ncol(model_data$delta.dm))
+      select[i]=any(model_data$delta.dm[,i]!=0)
+    model_data$delta.dm=model_data$delta.dm[,select,drop=FALSE]
+  }
+  deltadm=model_data$delta.dm
+  deltafix=rep(-1,nrow(deltadm))
+  if(!is.null(ddl$delta$fix))
+    deltafix[!is.na(ddl$delta$fix)]=ddl$delta$fix[!is.na(ddl$delta$fix)]
+  delta_slist=simplify_indices(cbind(deltadm,deltafix))
+  
+  # pi design matrix
+  if(!is.null(ddl$pi$fix))
+    model_data$pi.dm[!is.na(ddl$pi$fix),]=0
+  if(ncol(model_data$pi.dm)!=0)
+  {
+    select=vector("logical",length=ncol(model_data$pi.dm))
+    for (i in 1:ncol(model_data$pi.dm))
+      select[i]=any(model_data$pi.dm[,i]!=0)
+    model_data$pi.dm=model_data$pi.dm[,select,drop=FALSE]
+  }
+  pidm=model_data$pi.dm
+  pifix=rep(-1,nrow(pidm))
+  if(!is.null(ddl$pi$fix))
+    pifix[!is.na(ddl$pi$fix)]=ddl$pi$fix[!is.na(ddl$pi$fix)]
+  pi_slist=simplify_indices(cbind(pidm,pifix))
+  
+  # unkinit set to 0 unless all unknown or all known at initial release;
+  # when unkinit=0, delta is applied in dmat
+  unkinit=as.numeric(all(is.na(xstart[,1])) | all(!is.na(xstart[,1])))
+  
+  ids=vector("integer",length=n)
+  if(!is.null(real.ids))
+  {
+    if(all(real.ids>=1 &real.ids<=n))
+      ids[real.ids]=1
+    else
+      stop("invalid values for real.ids")
+  } else
+    ids=rep(1,n)
+  
+  tmb_data <- list(n=n,m=nocc,nS=nS, nobs=nobs,ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,
+                   tint=model_data$time.intervals,nrowphi=length(phi_slist$set),phidm=phidm[phi_slist$set,,drop=FALSE],
+                   phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$Phi.indices],
+                   nrowp=length(p_slist$set),pdm=pdm[p_slist$set,,drop=FALSE],
+                   pfix=pfix[p_slist$set],pindex=p_slist$indices[ddl$p.indices],
+                   npos=nrow(sup$indices_forp),ipos=sup$indices_forp,
+                   nrowpsi=length(psi_slist$set),	psidm=psidm[psi_slist$set,,drop=FALSE],
+                   psifix=psifix[psi_slist$set],psiindex=psi_slist$indices[ddl$Psi.indices],
+                   nrowd=length(delta_slist$set),	ddm=deltadm[delta_slist$set,,drop=FALSE],
+                   dfix=deltafix[delta_slist$set],dindex=delta_slist$indices[ddl$delta.indices],
+                   nrowpi=length(pi_slist$set),	pidm=pidm[pi_slist$set,,drop=FALSE],
+                   pifix=pifix[pi_slist$set],piindex=pi_slist$indices[ddl$pi.indices],initknown=unkinit,debug=as.numeric(debug),
+                   getreals=as.integer(getreals),ids=ids)
+  tmb_par <- list(phibeta=par$Phi,pbeta=par$p,dbeta=par$delta,psibeta=par$Psi,pibeta=par$pi)
+  f = MakeADFun(
+    data=c(model="mvms",tmb_data),
+    parameters=tmb_par,
+    DLL="markedTMB_TMBExports"
+  )
+  if(optimize)
+  {
+    if(debug)cat("\nrunning TMB program\n")
+    if(method=="nlminb")
+    {
+      if(!useHess)
+        if(debug)
+          mod=nlminb(f$par,f$fn,f$gr,control=control)
+      else
+        capture.output(mod<-nlminb(f$par,f$fn,f$gr,control=control))
+      else
+        if(debug)
+          mod=nlminb(f$par,f$fn,f$gr,f$he,control=control)
+        else
+          capture.output(mod<-nlminb(f$par,f$fn,f$gr,f$he,control=control))
+        
+        lnl=mod$objective
+        par=mod$par
+        convergence=mod$convergence
+    } else
+    {
+      if(method=="SANN")
+      {
+        control$maxit=itnmax
+        mod=optim(f$par,f$fn,hessian=FALSE,control=control,itnmax=itnmax,method=method,...)
+        par=mod$par
+        convergence=mod$convergence
+      } else
+      {
+        control$starttests=FALSE
+        if(!useHess)
+          if(debug)
+            mod=optimx(f$par,f$fn,f$gr,hessian=FALSE,control=control,itnmax=itnmax,method=method)
+        else
+          capture.output(mod<-optimx(f$par,f$fn,f$gr,hessian=FALSE,control=control,itnmax=itnmax,method=method))
+        else
+          if(debug)
+            mod=optimx(f$par,f$fn,f$gr,f$he,hessian=FALSE,control=control,itnmax=itnmax,method=method)
+          else
+            capture.output(mod<-optimx(f$par,f$fn,f$gr,f$he,hessian=FALSE,control=control,itnmax=itnmax,method=method))
+          par <- coef(mod, order="value")[1, ]
+          mod=as.list(summary(mod, order="value")[1, ])
+          convergence=mod$convcode
+      }
+      lnl=mod$value
+    }
+  } else
+  {
+    lnl=f$fn(f$par)
+    mod=NULL
+    convergence=0
+  }
+  if(getreals)
+    if(!debug)
+      capture.output(par_summary<-sdreport(f,getReportCovariance=vcv))
+  else
+    par_summary<-sdreport(f,getReportCovariance=vcv)
+  res=mod
+  cjs.beta=unscale.par(par,scale)
+  if(hessian)
+  {
+    if(debug)message("Inverting hessian...")
+    beta.vcv=solvecov(f$he(par))$inv
+    colnames(beta.vcv)=names(unlist(cjs.beta))
+    rownames(beta.vcv)=colnames(beta.vcv)
+  } else
+    beta.vcv=NULL
+  # Create results list
+  if(getreals)
+  {
+    reals=split(par_summary$value,names(par_summary$value))
+    reals.se=split(par_summary$sd,names(par_summary$value))
     names(reals)=c("delta","p","Phi","pi","Psi")
     names(reals.se)=c("delta","p","Phi","pi","Psi")
     reals$Psi=as.vector(aperm(array(reals$Psi,dim=c(model_data$imat$nocc-1,length(strata.labels),length(strata.labels),sum(ids))),c(3,2,1,4)))
     reals.se$Psi=as.vector(aperm(array(reals.se$Psi,dim=c(model_data$imat$nocc-1,length(strata.labels),length(strata.labels),sum(ids))),c(3,2,1,4)))
     reals$delta=as.vector(aperm(array(reals$delta,dim=c(model_data$imat$nocc,nrow(sup$indices_forp))),c(2,1)))
     reals.se$delta=as.vector(aperm(array(reals.se$delta,dim=c(model_data$imat$nocc,nrow(sup$indices_forp))),c(2,1)))
-	}
-	else
-	{
-	  reals=NULL
-	  reals.se=NULL
-	}
+  }
+  else
+  {
+    reals=NULL
+    reals.se=NULL
+  }
   res=list(beta=cjs.beta,neg2lnl=2*lnl,AIC=2*lnl+2*sum(sapply(cjs.beta,length)),
-         beta.vcv=beta.vcv,reals=reals,reals.se=reals.se,real.ids=real.ids,convergence=convergence,optim.details=mod,
-         model_data=model_data,
-         options=list(scale=scale,accumulate=accumulate,initial=initial,method=method,
-                      chunk_size=chunk_size,itnmax=itnmax,control=control))
+           beta.vcv=beta.vcv,reals=reals,reals.se=reals.se,real.ids=real.ids,convergence=convergence,optim.details=mod,
+           model_data=model_data,
+           options=list(scale=scale,accumulate=accumulate,initial=initial,method=method,
+                        chunk_size=chunk_size,itnmax=itnmax,control=control))
   if(savef)res$f=f
-	# beta=list(unscale.par(c(res$coeflist$phibeta,res$coeflist$pbeta,res$coeflist$dbeta,res$coeflist$psibeta,res$coeflist$pi),scale))
-	# parnames=names(unlist(beta))
-	# fixed.npar=length(unlist(beta))
-	# if(!is.null(res$hes))
-	# {
-	# 	beta.vcv=solvecov(res$hes)$inv
-	# 	rownames(res$hes)=parnames
-	# 	colnames(res$hes)=rownames(res$hes)
-	# 	if(all(diag(beta.vcv>0)))
-	# 		res$cor=beta.vcv/outer(sqrt(diag(beta.vcv)),sqrt(diag(beta.vcv)))
-	# }  else
-	# 	beta.vcv=res$vcov
-	# rownames(beta.vcv)=parnames
-	# colnames(beta.vcv)=rownames(beta.vcv)
-	# rownames(res$cor)=rownames(beta.vcv)
-	# colnames(res$cor)=rownames(beta.vcv)
-	# res$vcov=NULL
-	# optim.details=c(fn=res$fn,maxgrad=res$maxgrad,eratio=res$eratio)
-	# options=list(extra.args=extra.args)
-	# res$cor=NULL
-	# res$maxgrad=NULL
-	# results=c(beta=beta,neg2lnl=-2*res$loglik,AIC=-2*res$loglik+2*res$npar,convergence=convergence)
-	# results$hessian=res$hes
-	# results$optim.details=optim.details
-	# results$options=options
-	# results$coeflist=res$coeflist
-	# results$npar=list(npar=res$npar,npar_sdrpt=res$npar_sdrpt,npar_total=res$npar_total)
-	# results$beta.vcv=beta.vcv
-	# res=results
-#  Restore non-accumulated, non-scaled dm's etc
-	 res$model_data=model_data.save
-#  Assign S3 class values and return
-	 class(res)=c("crm","mvmscjs")
-	 return(res)
+  # beta=list(unscale.par(c(res$coeflist$phibeta,res$coeflist$pbeta,res$coeflist$dbeta,res$coeflist$psibeta,res$coeflist$pi),scale))
+  # parnames=names(unlist(beta))
+  # fixed.npar=length(unlist(beta))
+  # if(!is.null(res$hes))
+  # {
+  # 	beta.vcv=solvecov(res$hes)$inv
+  # 	rownames(res$hes)=parnames
+  # 	colnames(res$hes)=rownames(res$hes)
+  # 	if(all(diag(beta.vcv>0)))
+  # 		res$cor=beta.vcv/outer(sqrt(diag(beta.vcv)),sqrt(diag(beta.vcv)))
+  # }  else
+  # 	beta.vcv=res$vcov
+  # rownames(beta.vcv)=parnames
+  # colnames(beta.vcv)=rownames(beta.vcv)
+  # rownames(res$cor)=rownames(beta.vcv)
+  # colnames(res$cor)=rownames(beta.vcv)
+  # res$vcov=NULL
+  # optim.details=c(fn=res$fn,maxgrad=res$maxgrad,eratio=res$eratio)
+  # options=list(extra.args=extra.args)
+  # res$cor=NULL
+  # res$maxgrad=NULL
+  # results=c(beta=beta,neg2lnl=-2*res$loglik,AIC=-2*res$loglik+2*res$npar,convergence=convergence)
+  # results$hessian=res$hes
+  # results$optim.details=optim.details
+  # results$options=options
+  # results$coeflist=res$coeflist
+  # results$npar=list(npar=res$npar,npar_sdrpt=res$npar_sdrpt,npar_total=res$npar_total)
+  # results$beta.vcv=beta.vcv
+  # res=results
+  #  Restore non-accumulated, non-scaled dm's etc
+  res$model_data=model_data.save
+  #  Assign S3 class values and return
+  class(res)=c("crm","mvmscjs")
+  return(res)
 }
 
 

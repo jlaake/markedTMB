@@ -1,11 +1,15 @@
-// TMB Version: Mixed-effect Multi-State Jolly-Seber model
+// TMB Version: Mixed-effect Multi-State Jolly-Seber model with state uncertainty
 // Jeff Laake; 13 Oct 2021
+// modified by DSJ for TMBtools 4 Nov 2021
 
-#include <TMB.hpp>                              // Links in the TMB libraries
+// **DON'T** #include <TMB.hpp> as it is not include-guarded
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR obj
 
 template<class Type>
-Type objective_function<Type>::operator() ()
-{
+Type msjsu(objective_function<Type>* obj) {
+  
   DATA_INTEGER(nG);                           // number of groups in data for abundance estimation
   DATA_INTEGER(n);                            // number of capture histories
   DATA_INTEGER(m);                            // number of capture occasions
@@ -86,6 +90,20 @@ Type objective_function<Type>::operator() ()
   DATA_IMATRIX(pi_idIndex);                  // pi random effect indices by id; index into u_phi to construct phi_u
   DATA_IVECTOR(pi_idIndex_i);                // pi random effect id index indices
   
+  DATA_INTEGER(nrowdelta);                      // number of rows in the simplified design matrix for delta
+  DATA_MATRIX(deltadm);                         // design matrix for delta
+  DATA_VECTOR(deltafix);                        // delta fixed values
+  DATA_IVECTOR(deltaindex);                     // delta indices
+  DATA_INTEGER(delta_nre);                      // number of random effects for delta
+  DATA_INTEGER(delta_krand);                    // number of columns in delta random effect DM
+  DATA_MATRIX(delta_randDM);                    // delta random effect DM
+  DATA_IVECTOR(delta_randDM_i);                 // delta random DM indices
+  DATA_IMATRIX(delta_randIndex);                // delta random effect indices for DM; index into phi_u
+  DATA_IVECTOR(delta_randIndex_i);              // delta random effect index indices
+  DATA_IVECTOR(delta_counts);                   // count of delta random effect indices by id
+  DATA_IMATRIX(delta_idIndex);                  // delta random effect indices by id; index into u_phi to construct phi_u
+  DATA_IVECTOR(delta_idIndex_i);                // delta random effect id index indices
+  
   DATA_INTEGER(getreals);                     // if 1, report reals and std errors
   
   PARAMETER_VECTOR(phibeta);                  // parameter vector for Phi
@@ -93,16 +111,19 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(psibeta);                  // parameter vector for Psi
   PARAMETER_VECTOR(pentbeta);                 // parameter vector for pent
   PARAMETER_VECTOR(pibeta);                   // parameter vector for pi
+  PARAMETER_VECTOR(deltabeta);                // parameter vector for delta
   PARAMETER_VECTOR(log_sigma_phi);
   PARAMETER_VECTOR(log_sigma_p);
   PARAMETER_VECTOR(log_sigma_psi);
   PARAMETER_VECTOR(log_sigma_pent);
   PARAMETER_VECTOR(log_sigma_pi);
+  PARAMETER_VECTOR(log_sigma_delta);
   PARAMETER_VECTOR(u_phi);
   PARAMETER_VECTOR(u_p);
   PARAMETER_VECTOR(u_psi);
   PARAMETER_VECTOR(u_pent);
   PARAMETER_VECTOR(u_pi);
+  PARAMETER_VECTOR(u_delta);
   
   Type g=0;
   
@@ -122,16 +143,18 @@ Type objective_function<Type>::operator() ()
   vector<Type> uniquepent(nrowpent);   // temp vector for pent
   Type pentsum;                        // sum of pent across time
   vector<Type> uniquepi(nrowpi);       // temp vector for pi
-  Type pisum;                          // sum of pent across states within a time
+  Type pisum;                          // sum of pi across states within a time
+  vector<Type> uniquedelta(nrowdelta); // temp vector for delta
   
   array<Type> psi(m-1,nS,nS);         // matrix for psis for each occasion
   vector<Type> pent(m-1);             // vector for pent by occasion
   vector<Type> cumsumpent(m-2);       // vector for cumulative sums of pent by occasion
   array<Type> pi(m-1,nS-1);           // matrix for pi by occasion / stratum
+  array<Type> delta(m-1,nS-1);        // matrix for delta by occasion / stratum
   array<Type> gamma(m-1,nS+1,nS+1);   // transition probability matrices for individual i
-  array<Type> dmat(m-1,nS+1,nS+1);    // observation probability matrices for individual i
+  array<Type> dmat(m-1,nS+2,nS+1);    // observation probability matrices for individual i
   array<double> allgamma(n,m-1,nS+1,nS+1);   // transition probability matrices for all individuals
-  array<double> alldmat(n,m-1,nS+1,nS+1);      // observation probability matrices  for all individuals
+  array<double> alldmat(n,m-1,nS+2,nS+1);      // observation probability matrices  for all individuals
   array<double> allp0(nG);            // probability of never seeing an animal (all 0 capture history) in each group
   array<double> allN(nG);             // abundance of animals in each group
   Type u;                             // sum of state probabilities
@@ -152,6 +175,8 @@ Type objective_function<Type>::operator() ()
   if(pent_nre==0)npentcounts=0;
   int npicounts=n;                   // number of counts for pent random effects by id
   if(pi_nre==0)npicounts=0;
+  int ndeltacounts=n;                   // number of counts for pent random effects by id
+  if(delta_nre==0)ndeltacounts=0;
   
   if(phi_krand>0)	                                        // likelihood contribution for n(0,1) re for phi
     for (int i=0;i<=phi_nre-1;i++)
@@ -173,11 +198,16 @@ Type objective_function<Type>::operator() ()
     for (int i=0;i<=pi_nre-1;i++)
       g-= dnorm(u_pi(i),Type(0),Type(1),true);
   
+  if(delta_krand>0)	                                      // likelihood contribution for n(0,1) re for delta
+    for (int i=0;i<=delta_nre-1;i++)
+      g-= dnorm(u_delta(i),Type(0),Type(1),true);
+  
   uniquephi=phidm*phibeta;                              // compute unique parameter sets on link scale
   uniquep=pdm*pbeta;
   uniquepsi=psidm*psibeta;
   uniquepent=pentdm*pentbeta;
   uniquepi=pidm*pibeta;
+  uniquedelta=deltadm*deltabeta;
   alldmat.setZero();
   allgamma.setZero();
   
@@ -189,6 +219,7 @@ Type objective_function<Type>::operator() ()
     vector<Type> psi_u(psi_idIndex.cols());
     vector<Type> pent_u(pent_idIndex.cols());
     vector<Type> pi_u(pi_idIndex.cols());
+    vector<Type> delta_u(delta_idIndex.cols());
     p_u.setZero();
     phi_u.setZero();
     if(nphicounts >0)                          // if any random effects for phi, copy values from u_phi to phi_u
@@ -234,6 +265,15 @@ Type objective_function<Type>::operator() ()
       else
         for(j=0;j<=pi_counts(i-1)-1;j++)
           pi_u(j)=u_pi(pi_idIndex(pi_idIndex_i(i-1)-1,j)-1);
+    }
+    
+    if(ndeltacounts >0)                           // if any random effects for delta, copy values from u_delta to delta_u
+    {
+      if(delta_counts(i-1)==0)
+        delta_u(0)=0;
+      else
+        for(j=0;j<=delta_counts(i-1)-1;j++)
+          delta_u(j)=u_delta(delta_idIndex(delta_idIndex_i(i-1)-1,j)-1);
     }
     
     bindex=(i-1)*nrows;                               // initialize indices into index values for the ith history
@@ -315,11 +355,13 @@ Type objective_function<Type>::operator() ()
         else
           phi((j-1)*nS+k-1)=phifix(idx);
         
-        // compute pi values for each state (excluding N) for the jth occasion
+        // compute pi  and delta values for each state (excluding N) for the jth occasion
         if(k>1)
         {
           i2=bindex4+(j-1)*(nS-1)+k-1;
           idx=piindex(i2-1)-1;
+          
+          // pi
           if(pifix(idx)< -0.5)
           {
             mu=0;
@@ -341,6 +383,30 @@ Type objective_function<Type>::operator() ()
           else
             pi(j-1,k-2)=pifix(idx);
           pisum+=pi(j-1,k-2);
+          
+          // delta
+          idx=deltaindex(i2-1)-1;
+          if(deltafix(idx)< -0.5)
+          {
+            mu=0;
+            if(ndeltacounts>0)
+              if(delta_counts(i-1) > 0)	                        // random portion of mean if any
+              {
+                for(L=1;L<=delta_krand;L++)
+                  if(delta_randIndex(delta_randIndex_i(i2-1)-1,L-1)>0)
+                    mu+=delta_randDM(delta_randDM_i(i2-1)-1,L-1)*delta_u(delta_randIndex(delta_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_delta(L-1));
+              }
+              if((uniquedelta(idx)+mu)< -25)
+                delta(j-1,k-2)=1/(1+exp(25));
+              else  
+                if((uniquedelta(idx)+mu)> 25)
+                  delta(j-1,k-2)=1/(1+exp(-25));
+                else
+                  delta(j-1,k-2)=1/(1+exp(-(uniquedelta(idx)+mu)));
+                
+          }
+          else
+            delta(j-1,k-2)=deltafix(idx);
         }
         
         //  compute psi values for the individual
@@ -381,6 +447,7 @@ Type objective_function<Type>::operator() ()
       // normalize pi over strata
       for (k=2;k<=nS;k++)
         pi(j-1,k-2)=pi(j-1,k-2)/pisum;
+      
     } // end of loop over occasions
     
     // normalize pent to sum to 1 by looping over occasions
@@ -404,6 +471,7 @@ Type objective_function<Type>::operator() ()
       ADREPORT(psi);
       ADREPORT(pent);
       ADREPORT(pi);
+      ADREPORT(delta);
     }
     
     //  compute transition matrices for each occasion
@@ -441,9 +509,16 @@ Type objective_function<Type>::operator() ()
     {
       for(k=1;k<=nS;k++)
       {
-        dmat(j-1,k,k-1)=p(bindex-1);
+        if(k==1)
+          dmat(j-1,k,k-1)=p(bindex-1);
+        else
+        {
+          dmat(j-1,k,k-1)=p(bindex-1)*(1-delta(j-1,k-2));
+          dmat(j-1,nS+1,k-1)=p(bindex-1)*delta(j-1,k-2);
+        }
         alldmat(i-1,j-1,k,k-1)=asDouble(dmat(j-1,k,k-1));
-        dmat(j-1,0,k-1)=1-dmat(j-1,k,k-1);
+        alldmat(i-1,j-1,nS+1,k-1)=asDouble(dmat(j-1,nS+1,k-1));
+        dmat(j-1,0,k-1)=1-p(bindex-1);
         alldmat(i-1,j-1,0,k-1)=asDouble(dmat(j-1,0,k-1));
         bindex++;
       }
@@ -498,3 +573,6 @@ Type objective_function<Type>::operator() ()
   REPORT(allgamma);
   return g;
 }
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR this

@@ -1,18 +1,20 @@
 // TMB Version: Mixed-effect Multi-State Cormack-Jolly-Seber + recovery model with unobservable states
 // Jeff Laake; 9 Jan 2020 - added dmat/gamma report
+// modified by DSJ for TMBtools 4 Nov 2021
 
-#include <TMB.hpp>                              // Links in the TMB libraries
+// **DON'T** #include <TMB.hpp> as it is not include-guarded
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR obj
 
 template<class Type>
-Type objective_function<Type>::operator() ()
-{
+Type msld(objective_function<Type>* obj) {
+
   DATA_INTEGER(n);                            // number of capture histories
   DATA_INTEGER(m);                            // number of capture occasions
   DATA_INTEGER(nS);                           // number of states excluding death states (newly dead and dead)
   DATA_IMATRIX(ch);                           // capture history matrix; uses numeric values for states
   DATA_IVECTOR(frst);                         // occasion first seen for each history
-  DATA_IVECTOR(frstrec);                      // first record in ddl of S,r,p for each history
-  DATA_IVECTOR(frstrecpsi);                   // first record in ddl of Psi foreach history
   DATA_VECTOR(freq);                          // frequency of each capture history
   DATA_MATRIX(tint);                          // time interval between occasions for each history-interval
   
@@ -93,7 +95,9 @@ Type objective_function<Type>::operator() ()
   
   int nrows;                           // number of entries in design matrix m-1 values for each of nS states
   nrows=nS*(m-1);                
- 
+  int nT;                              // number of transitions excluding death
+  nT=nS*nS*(m-1);                       
+  
   int i,j,k,bindex,bindex2,k2,idx,i2;  // indices and counters
   int L; 
   vector<Type> uniquephi(nrowphi);     // all unique phi values    
@@ -104,10 +108,6 @@ Type objective_function<Type>::operator() ()
   vector<Type> p(nrows);               // temp vector for ps for an individual
   vector<Type> uniquepsi(nrowpsi);     // temp vector for psis 
   Type psisum;                         // sum of psi for each state to normalize with
-  
-  phi.setZero();
-  p.setZero();
-  r.setZero();
   
   array<Type> psi(m-1,nS,nS);             // matrix for psis for each occasion 
   array<Type> gamma(m-1,2*nS+1,2*nS+1);   // transition probability matrices for individual i
@@ -153,7 +153,7 @@ Type objective_function<Type>::operator() ()
   alldmat.setZero();
   allgamma.setZero();
   
-  for(i=1;i<=2;i++)                             // loop over capture histories - one per capture history
+  for(i=1;i<=n;i++)                             // loop over capture histories - one per capture history
   {
     vector<Type> p_u(p_idIndex.cols());        // define random effects vector for p, Phi,r and psi used                  
     vector<Type> phi_u(phi_idIndex.cols());    // just for this capture history copied from full vectors
@@ -198,15 +198,13 @@ Type objective_function<Type>::operator() ()
           psi_u(j)=u_psi(psi_idIndex(psi_idIndex_i(i-1)-1,j)-1);
     } 
     //  compute phi and p values for the individual   
-    bindex=frstrec(i-1);                               // initialize indices into index values for the ith history
-    bindex2=frstrecpsi(i-1);
-    Rcout << "\n" << frstrec(i-1);
-    Rcout << "\n" << frstrecpsi(i-1);
-    for (j=frst(i-1);j<=m-1;j++)
+    bindex=(i-1)*nrows;                               // initialize indices into index values for the ith history
+    bindex2=(i-1)*nT;    
+    for (j=1;j<=m-1;j++)
     {                       
       for (k=1;k<=nS;k++)                        
       {   
-        i2=bindex+(j-frst(i-1))*nS+k;
+        i2=bindex+(j-1)*nS+k;
         idx=pindex(i2-1)-1;
         if(pfix(idx)< -0.5)
         {
@@ -218,7 +216,13 @@ Type objective_function<Type>::operator() ()
                 if(p_randIndex(p_randIndex_i(i2-1)-1,L-1)>0)
                   mu+=p_randDM(p_randDM_i(i2-1)-1,L-1)*p_u(p_randIndex(p_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_p(L-1));
             }	           
-            p((j-1)*nS+k-1)=1/(1+exp(-(uniquep(idx)+mu)));
+            if((uniquep(idx)+mu)< -25)
+              p((j-1)*nS+k-1)=1/(1+exp(25));
+            else  
+              if((uniquep(idx)+mu)> 25)
+                p((j-1)*nS+k-1)=1/(1+exp(-25));
+              else
+                p((j-1)*nS+k-1)=1/(1+exp(-(uniquep(idx)+mu)));
         }
         else
           p((j-1)*nS+k-1)=pfix(idx);
@@ -239,15 +243,138 @@ Type objective_function<Type>::operator() ()
         else
           phi((j-1)*nS+k-1)=phifix(idx);     
         
-       }
+        idx=rindex(i2-1)-1;
+        if(rfix(idx)< -0.5)
+        {
+          mu=0;
+          if(nrcounts>0)
+            if(r_counts(i-1) > 0)	                        // random portion of mean if any
+            {
+              for(L=1;L<=r_krand;L++)
+                if(r_randIndex(r_randIndex_i(i2-1)-1,L-1)>0)
+                  mu+=r_randDM(r_randDM_i(i2-1)-1,L-1)*r_u(r_randIndex(r_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_r(L-1));
+            }	
+            r((j-1)*nS+k-1)=(1/(1+exp(-(uniquer(idx)+mu)))); 
+        }
+        else
+          r((j-1)*nS+k-1)=rfix(idx);     
+        
+        
+        psisum=0;
+        for(k2=1;k2<=nS;k2++)
+        {
+          i2=bindex2+(k-1)*nS+k2;
+          idx=psiindex(i2-1)-1;              
+          if(psifix(idx)< -0.5)
+          {
+            mu=0;
+            if(npsicounts>0)
+              if(psi_counts(i-1) > 0)	                 
+              {
+                for(L=1;L<=psi_krand;L++)
+                  if(psi_randIndex(psi_randIndex_i(i2-1)-1,L-1)>0)
+                    mu+=psi_randDM(psi_randDM_i(i2-1)-1,L-1)*psi_u(psi_randIndex(psi_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_psi(L-1));
+              }       
+              if((uniquepsi(idx)+mu)>700)
+                psi(j-1,k-1,k2-1)=exp(700);
+              else
+                if((uniquepsi(idx)+mu)< -700)
+                  psi(j-1,k-1,k2-1)=exp(-700);
+                else
+                  psi(j-1,k-1,k2-1)=exp(uniquepsi(idx)+mu);
+           }	
+          else
+            psi(j-1,k-1,k2-1)=psifix(idx);
+          psisum+=psi(j-1,k-1,k2-1);
+        }
+        for(k2=1;k2<=nS;k2++)
+          psi(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)/psisum;
+      }
+      bindex2=bindex2+nS*nS;         
     }
-    if(i<5)
+    if(getreals>0)                                               // if requested report phi, r, p and psi values
     {
-      Rcout << "\n\ni =" <<i;
-      Rcout << "\n phi =" << phi ;
-      Rcout << "\n p =" << p ;
+      ADREPORT(phi);
+      ADREPORT(r);
+      ADREPORT(p);
+      ADREPORT(psi);
     }    
+    
+    //  compute transition matrices for each occasion
+    gamma.setZero();                        // initialize all transitions to zero
+    bindex=1;
+    for(j=1;j<=m-1;j++)                        // loop over intervals 
+    {
+      for(k=1;k<=nS;k++)                     // loop over states creating p and gamma values
+      {
+        for(k2=1;k2<=nS;k2++)
+        {          
+          gamma(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)*phi(bindex-1);      // adjust psi for survival
+          allgamma(i-1,j-1,k-1,k2-1)=asDouble(gamma(j-1,k-1,k2-1));
+        }
+        gamma(j-1,k-1,nS+k-1)=1-phi(bindex-1);                    // add newly dead state value for each state
+        allgamma(i-1,j-1,k-1,nS+k-1)=asDouble(gamma(j-1,k-1,nS+k-1));
+        gamma(j-1,nS+k-1,2*nS)=1;                                 // newly dead to permanently dead transition
+        allgamma(i-1,j-1,nS+k-1,2*nS)=1;
+        bindex++;
+      }
+      gamma(j-1,2*nS,2*nS)=1;                                    // permanently dead is an absorbing state
+      allgamma(i-1,j-1,2*nS,2*nS)=1;
+    }
+    
+    //  compute state dependent observation matrices for each occasion
+    dmat.setZero();
+    bindex=1;
+    for(j=1;j<=m-1;j++)
+    {
+      for(k=1;k<=nS;k++)
+      {
+        dmat(j-1,k,k-1)=p(bindex-1);  
+        dmat(j-1,0,k-1)=1-dmat(j-1,k,k-1);
+        dmat(j-1,0,nS+k-1)=1-r(bindex-1);  //did not recover newly dead
+        dmat(j-1,nS+1,nS+k-1)=r(bindex-1); // recovered newly dead
+        
+        alldmat(i-1,j-1,k,k-1)=asDouble(dmat(j-1,k,k-1));  
+        alldmat(i-1,j-1,0,k-1)=asDouble(dmat(j-1,0,k-1));
+        alldmat(i-1,j-1,0,nS+k-1)=asDouble(dmat(j-1,0,nS+k-1));
+        alldmat(i-1,j-1,nS+1,nS+k-1)=asDouble(dmat(j-1,nS+1,nS+k-1));
+        bindex++;
+      }
+      dmat(j-1,0,2*nS)=1;                   //cannot observe permanently dead
+      alldmat(i-1,j-1,0,2*nS)=1;
+    }
+    //  HMM algorithm
+    pS.setZero();                                      // initialize values to 0
+    Lglki=0;	
+    S.setZero();                                     
+    S(ch(i-1,frst(i-1)-1)-1)=1;                        // set state prob to 1 for observed state at first observation
+    for(j=frst(i-1)+1;j<=m;j++)                       // loop over possible occasions from first(i)+1 to m
+    {
+      for(k=1;k<=2*nS+1;k++)
+      {
+        pS(k-1)=0;
+        for(k2=1;k2<=2*nS+1;k2++)
+          pS(k-1)+= S(k2-1)*gamma(j-2,k2-1,k-1);
+      }
+      for(k=1;k<=2*nS+1;k++)
+      {
+        v(k-1)=pS(k-1)*dmat(j-2,ch(i-1,j-1),k-1); // v is temp state vector alpha in Z&M
+      }
+      if(v.sum()==0) {
+        Rcout << "\n Check Psi or p values set to 0";
+        Rcout << "\n i = " << i << " ch = " << ch(i-1);
+      }
+      u=v.sum();                                       // sum across states
+      S=v/u;                                          // update S;S is normalized alpha(j) (phi) in Z&M
+      Lglki+=log(u);    	                            // accumulate log-likelihood value
+      
+    }
+    g-=freq(i-1)*Lglki;
   }
-  g=0;
+  REPORT(alldmat);
+  REPORT(allgamma);
   return g;
 }
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR this
