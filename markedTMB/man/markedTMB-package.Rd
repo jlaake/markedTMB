@@ -6,6 +6,8 @@
 \alias{markedTMB-package}
 \title{markedTMB: Mark-Recapture Analysis for Survival Estimation}
 \description{
-Functions for fitting various models to capture-recapture data including mixed-effects multistate models, multi-variate state models and multistate live and dead recovery structure for survival estimation. All models are implemented with TMB.
+Functions for fitting various models to capture-recapture data
+    including mixed-effects multistate models, multi-variate state models and multistate live and dead recovery structure for survival
+    estimation. All models are implemented with TMB.
 }
 \keyword{internal}
