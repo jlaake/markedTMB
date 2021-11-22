@@ -63,7 +63,7 @@ setup_tmb=function(tpl,clean=FALSE,debug=FALSE)
 #' @keywords utility
 load_lib <- function(model)
 {  	
-  mod_list <- c("MSCJS","MVMSCJS","MSLD")
+  mod_list <- c("MSCJS","MVMSCJS","MSLD","MSJS","MSJSU")
   if(model%in%mod_list){
     if(!"markedTMB_TMBExports"%in%names(getLoadedDLLs())){
       fff <- paste0(system.file(package='markedTMB'), "/libs/markedTMB_TMBExports")

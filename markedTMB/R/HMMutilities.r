@@ -51,12 +51,29 @@ compute_matrices=function(object,state.names=NULL,par=NULL)
     mat$dmat=temp
     mat=list(delta=mat$delta,dmat=mat$dmat,gamma=mat$gamma)
   }
+  if(object$model%in%c("MSJS","MSJSU"))
+  {
+    names(mat)=c("p0","N","dmat","gamma")
+    mat$delta=matrix(0,nrow=nrow(object$data$data),ncol=length(object$data$strata.labels)+1)
+    mat$delta[,1]=1
+    object$data$start=rbind(c(1,1),object$data$start)
+    temp=array(0,dim=c(dim(mat$dmat)[1],dim(mat$dmat)[2]+1,dim(mat$dmat)[3],dim(mat$dmat)[4]))
+    temp[,2:dim(temp)[2],,]=mat$dmat
+    for(i in 1:nrow(temp))
+      for(j in 1:length(object$data$strata.labels))
+      {
+        temp[i,object$data$start[i,2],j+1,j]=1
+        temp[i,object$data$start[i,2],1,j]=0
+      }
+    mat$dmat=temp
+    #mat=list(delta=mat$delta,dmat=mat$dmat,gamma=mat$gamma)
+  }
   if(object$model=="MVMSCJS")
   {    
     names(mat)=c("delta","dmat","gamma")
     mat$delta=cbind(mat$delta,rep(0,nrow(mat$delta)))
   }
-  if(is.null(state.names))
+   if(is.null(state.names))
   {
     if(object$model=="MSLD")
       state.names=c(object$data$strata.labels,paste(object$data$strata.labels,":NewDead",sep=""),"Dead")
@@ -189,3 +206,31 @@ global_decode=function(object,state.names=NULL,par=NULL)
 	states=t(apply(states,1,function(x) state.names[x]))
 	return(states)
 }
+
+abundance_estimate=function(object,par=NULL)
+{
+  if(!object$model%in%c("MSJS","MSJSU")) stop("Only used for JS type models")
+  gd=global_decode(object,par=par)
+  freq=object$data$freq[-1]
+  gd=gd[rep(1:nrow(gd),freq),]
+  strata=object$data$strata.labels
+  strata=strata[strata!="N"]
+  xx=apply(gd,2,function(x)table(factor(x,levels=strata)))
+  est=rep(object$results$f$report(par=par)$allN,object$data$nocc)*xx/sum(freq)
+  est=est[,-1]
+  est=rbind(est,colSums(est))
+  rownames(est)[3]="Total"
+  return(floor(est))
+}
+
+# call compute_matrices and grab total abundance then call global decode
+
+abundance_estimate_bs=function(object,nreps=1000)
+{
+  par_reps=rmvnorm(nreps,mean=unlist(object$results$beta),sigma=object$results$beta.vcv)
+  boot_reps=vector("list",length=nreps)
+  for(i in 1:nreps)
+    boot_reps[[i]]=abundance_estimate(object,par=par_reps[i,])
+  return(boot_reps)
+}
+
