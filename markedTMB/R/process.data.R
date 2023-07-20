@@ -616,7 +616,7 @@ add.dummy.data=function(data,nocc,group.covariates)
 		{
 			data=subset(data,select=c("ch","freq","group",numvar[numvar!="group"],names(group.covariates)))
 			xx=subset(xx,select=!names(xx)%in%"group")
-			dummy.data=cbind(data.frame(ch=ch,freq=-sapply(split(data$freq,data$grp),sum)),group=factor(rep(1:number.of.groups,each=1)),
+			dummy.data=cbind(data.frame(ch=ch,freq=-sapply(split(data$freq,data$group),sum)),group=factor(rep(1:number.of.groups,each=1)),
 					xx[rep(1:number.of.groups,each=1),,drop=FALSE])
 			names(dummy.data)=c("ch","freq","group",names(group.covariates),numvar[numvar!="group"])             
 		}
