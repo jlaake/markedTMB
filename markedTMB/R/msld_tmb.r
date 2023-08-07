@@ -33,9 +33,7 @@
 #' @param control control string for optimization functions
 #' @param scale vector of scale values for parameters
 #' @param re if TRUE creates random effect model admbcjsre.tpl and runs admb optimizer
-#' @param compile if TRUE forces re-compilation of tpl file
 #' @param extra.args optional character string that is passed to tmb 
-#' @param clean if TRUE, deletes the dll and recompiles 
 #' @param getreals if TRUE, compute real values and std errors for TMB models; may want to set as FALSE until model selection is complete
 #' @param useHess if TRUE, the TMB hessian function is used for optimization; using hessian is typically slower with many parameters but can result in a better solution
 #' @param savef if TRUE, save optimization function in model for reporting
@@ -53,7 +51,7 @@
 #' @author Jeff Laak
 msld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=NULL,method,
                   hessian=FALSE,debug=FALSE,chunk_size=1e7,refit,itnmax=NULL,control=NULL,scale,
-                  re=FALSE,compile=FALSE,extra.args="",clean=FALSE,getreals=FALSE, useHess=FALSE,
+                  re=FALSE,extra.args="",getreals=FALSE, useHess=FALSE,
                   savef=TRUE,...)
 {
   # load fullddl
@@ -113,7 +111,6 @@ msld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=N
   scale=1
   scale=set.scale(names(dml),model_data,scale)
   model_data=scale.dm(model_data,scale)
-  setup_tmb("msld_tmb",clean=clean)
   
   # S design matrix
   phidm=as.matrix(model_data$S.dm)
@@ -122,7 +119,7 @@ msld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=N
     phifix[!is.na(ddl$S$fix)]=ddl$S$fix[!is.na(ddl$S$fix)]
   phi_slist=simplify_indices(cbind(phidm,phifix))
   phi_relist=setup_re(fullddl$S,parameters$S$formula)
-
+  
   # r design matrix
   rdm=as.matrix(model_data$r.dm)
   rfix=rep(-1,nrow(rdm))
@@ -150,30 +147,35 @@ msld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=N
   rm(fullddl)
   gc()
   message("Building optimization function")
-  f = MakeADFun(data=list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels)-1,
-                          ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
-                          nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
-                          phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$S.indices],
-                          phi_nre=phi_relist$nre,phi_krand=phi_relist$krand,phi_randDM=phi_relist$randDM,phi_randDM_i=phi_relist$randDM_i,
-                          phi_randIndex=phi_relist$randIndex,phi_randIndex_i=phi_relist$randIndex_i,phi_counts=phi_relist$counts,phi_idIndex=phi_relist$idIndex,
-                          phi_idIndex_i=phi_relist$idIndex_i,
-                          nrowr=length(r_slist$set),rdm=rdm[r_slist$set,,drop=FALSE], rfix=rfix[r_slist$set],rindex=r_slist$indices[ddl$r.indices],
-                          r_nre=r_relist$nre,r_krand=r_relist$krand,r_randDM=r_relist$randDM,r_randDM_i=r_relist$randDM_i,
-                          r_randIndex=r_relist$randIndex,r_randIndex_i=r_relist$randIndex_i,r_counts=r_relist$counts,r_idIndex=r_relist$idIndex,r_idIndex_i=r_relist$idIndex_i,
-                          nrowp=length(p_slist$set),pdm=pdm[p_slist$set,,drop=FALSE],pfix=pfix[p_slist$set],pindex=p_slist$indices[ddl$p.indices],
-                          p_nre=p_relist$nre,p_krand=p_relist$krand,p_randDM=p_relist$randDM, p_randDM_i=p_relist$randDM_i, 
-                          p_randIndex=p_relist$randIndex,p_randIndex_i=p_relist$randIndex_i,p_counts=p_relist$counts,
-                          p_idIndex=p_relist$idIndex,p_idIndex_i=p_relist$idIndex_i,
-                          nrowpsi=length(psi_slist$set),	psidm=psidm[psi_slist$set,,drop=FALSE],
-                          psifix=psifix[psi_slist$set],psiindex=psi_slist$indices[ddl$Psi.indices],
-                          psi_nre=psi_relist$nre,psi_krand=psi_relist$krand,psi_randDM=psi_relist$randDM,psi_randDM_i=psi_relist$randDM_i,
-                          psi_randIndex=psi_relist$randIndex,psi_randIndex_i=psi_relist$randIndex_i,psi_counts=psi_relist$counts,psi_idIndex=psi_relist$idIndex,
-                          psi_idIndex_i=psi_relist$idIndex_i,
-                          getreals=as.integer(getreals)),
-                parameters=list(phibeta=par$S,rbeta=par$r,pbeta=par$p,psibeta=par$Psi,log_sigma_phi=rep(-1,phi_relist$nsigma),
-                                log_sigma_r=rep(-1,r_relist$nsigma),log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),
-                                u_phi=rep(0,phi_relist$nre),u_r=rep(0,r_relist$nre), u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre)),
-                random=c("u_phi","u_r","u_p","u_psi"),DLL="msld_tmb")
+  tmb_data <- list(n=length(model_data$imat$freq),m=model_data$imat$nocc,nS=length(strata.labels)-1,
+                   ch=chmat,frst=model_data$imat$first,freq=model_data$imat$freq,tint=model_data$time.intervals,
+                   nrowphi=length(phi_slist$set),	phidm=phidm[phi_slist$set,,drop=FALSE],
+                   phifix=phifix[phi_slist$set],phiindex=phi_slist$indices[ddl$S.indices],
+                   phi_nre=phi_relist$nre,phi_krand=phi_relist$krand,phi_randDM=phi_relist$randDM,phi_randDM_i=phi_relist$randDM_i,
+                   phi_randIndex=phi_relist$randIndex,phi_randIndex_i=phi_relist$randIndex_i,phi_counts=phi_relist$counts,phi_idIndex=phi_relist$idIndex,
+                   phi_idIndex_i=phi_relist$idIndex_i,
+                   nrowr=length(r_slist$set),rdm=rdm[r_slist$set,,drop=FALSE], rfix=rfix[r_slist$set],rindex=r_slist$indices[ddl$r.indices],
+                   r_nre=r_relist$nre,r_krand=r_relist$krand,r_randDM=r_relist$randDM,r_randDM_i=r_relist$randDM_i,
+                   r_randIndex=r_relist$randIndex,r_randIndex_i=r_relist$randIndex_i,r_counts=r_relist$counts,r_idIndex=r_relist$idIndex,r_idIndex_i=r_relist$idIndex_i,
+                   nrowp=length(p_slist$set),pdm=pdm[p_slist$set,,drop=FALSE],pfix=pfix[p_slist$set],pindex=p_slist$indices[ddl$p.indices],
+                   p_nre=p_relist$nre,p_krand=p_relist$krand,p_randDM=p_relist$randDM, p_randDM_i=p_relist$randDM_i, 
+                   p_randIndex=p_relist$randIndex,p_randIndex_i=p_relist$randIndex_i,p_counts=p_relist$counts,
+                   p_idIndex=p_relist$idIndex,p_idIndex_i=p_relist$idIndex_i,
+                   nrowpsi=length(psi_slist$set),	psidm=psidm[psi_slist$set,,drop=FALSE],
+                   psifix=psifix[psi_slist$set],psiindex=psi_slist$indices[ddl$Psi.indices],
+                   psi_nre=psi_relist$nre,psi_krand=psi_relist$krand,psi_randDM=psi_relist$randDM,psi_randDM_i=psi_relist$randDM_i,
+                   psi_randIndex=psi_relist$randIndex,psi_randIndex_i=psi_relist$randIndex_i,psi_counts=psi_relist$counts,psi_idIndex=psi_relist$idIndex,
+                   psi_idIndex_i=psi_relist$idIndex_i,
+                   getreals=as.integer(getreals))
+  tmb_par <- list(phibeta=par$S,rbeta=par$r,pbeta=par$p,psibeta=par$Psi,log_sigma_phi=rep(-1,phi_relist$nsigma),
+                  log_sigma_r=rep(-1,r_relist$nsigma),log_sigma_p=rep(-1,p_relist$nsigma),log_sigma_psi=rep(-1,psi_relist$nsigma),
+                  u_phi=rep(0,phi_relist$nre),u_r=rep(0,r_relist$nre), u_p=rep(0,p_relist$nre),u_psi=rep(0,psi_relist$nre))
+  f = MakeADFun(
+    data=c(model="msld",tmb_data),
+    parameters=tmb_par,
+    random=c("u_phi","u_r","u_p","u_psi"),
+    DLL="markedTMB_TMBExports"
+  )
   
   cat("\nrunning TMB program\n")                         
   if(method=="nlminb")
@@ -294,7 +296,7 @@ msld_tmb=function(x,ddl,dml,model_data=NULL,parameters,accumulate=TRUE,initial=N
   res$model_data=model_data.save
   # if savef add it to the model
   if(savef)res$f=f
-
+  
   # Assign S3 class values and return
   class(res)=c("crm","msld")
   return(res)

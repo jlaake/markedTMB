@@ -1,7 +1,7 @@
 Package: markedTMB
 Type: Package
-Version: 0.1.1
-Date: 2020-08-02
+Version: 0.3.0
+Date: 2021-11-29
 Title: Mark-Recapture Analysis for Survival Estimation
 Author: Jeff Laake <jefflaake@gmail.com>
 Maintainer: Jeff Laake <jefflaake@gmail.com>
@@ -27,12 +27,16 @@ Imports:
     data.table,
     knitr,
     kableExtra,
-    bookdown
+    bookdown,
+    mvtnorm,
+    TMB (>= 1.7.22)
 Suggests:
     ggplot2
 LazyLoad: yes
 VignetteBuilder: knitr
 License: GPL (>=2)
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Encoding: UTF-8
 LazyData: true
+LinkingTo: 
+    TMB

@@ -141,13 +141,13 @@
 #' 
 #' 
 #' data(dipper)
-#' dipper.process=process.data(dipper,groups="sex")
+#' dipper.process=process.data(dipper,groups="sex",strata.labels=c("1","2"))
 #' # create some artificial age data as an example
 #' dipper$ageclass=factor(c(rep("A",100),rep("J",194)))
-#' dipper.process=process.data(dipper,groups=c("sex","ageclass"),age.var=2,initial.ages=c(1,0))
+#' dipper.process=process.data(dipper,groups=c("sex","ageclass"),age.var=2,initial.ages=c(1,0),strata.labels=c("1","2"))
 #' 
 process.data <-
-function(data,begin.time=1,model="CJS",mixtures=1,groups=NULL,allgroups=FALSE,age.var=NULL,
+function(data,begin.time=1,model="MSCJS",mixtures=1,groups=NULL,allgroups=FALSE,age.var=NULL,
 initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NULL)
 {
    model=toupper(model)
@@ -189,7 +189,7 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
    {
      if(is.null(strata.labels)&!model%in%c("HMMCJS2TL","HMMCJS1TL"))
 	      stop("\nstrata.labels must be specified for stratified models\n")
-     if(model=="MSLD" & any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
+     if(model=="MSLD" && any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
          stop("For MSLD model strata labels must be alpha characters. Not numeric.")
    }
    if(model.list$IShmm)
@@ -616,7 +616,7 @@ add.dummy.data=function(data,nocc,group.covariates)
 		{
 			data=subset(data,select=c("ch","freq","group",numvar[numvar!="group"],names(group.covariates)))
 			xx=subset(xx,select=!names(xx)%in%"group")
-			dummy.data=cbind(data.frame(ch=ch,freq=-sapply(split(data$freq,data$grp),sum)),group=factor(rep(1:number.of.groups,each=1)),
+			dummy.data=cbind(data.frame(ch=ch,freq=-sapply(split(data$freq,data$group),sum)),group=factor(rep(1:number.of.groups,each=1)),
 					xx[rep(1:number.of.groups,each=1),,drop=FALSE])
 			names(dummy.data)=c("ch","freq","group",names(group.covariates),numvar[numvar!="group"])             
 		}

@@ -21,8 +21,6 @@ mvmscjs_tmb(
   itnmax = NULL,
   control = NULL,
   re = FALSE,
-  compile = FALSE,
-  clean = TRUE,
   sup,
   getreals = FALSE,
   real.ids = NULL,
@@ -70,10 +68,6 @@ histories; amount used is 8*chunk_size/1e6 MB (default 80MB)}
 \item{control}{control string for optimization functions}
 
 \item{re}{currently ignored}
-
-\item{compile}{if TRUE forces re-compilation of cpp file}
-
-\item{clean}{if TRUE, deletes the cpp and dll for tmb if use.tmb=TRUE}
 
 \item{sup}{supplemental index values for constructing mvms model; these are defined in the crm code}
 
