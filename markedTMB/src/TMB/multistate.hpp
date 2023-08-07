@@ -1,12 +1,14 @@
-// TMB Version: Mixed-effect Multi-State Jolly-Seber model with state uncertainty
-// Jeff Laake; 13 Oct 2021
+// TMB Version: Mixed-effect Multi-State Cormack-Jolly-Seber model with unobservable states
+// modified by DSJ for TMBtools 4 Nov 2021
 
-#include <TMB.hpp>                              // Links in the TMB libraries
+// **DON'T** #include <TMB.hpp> as it is not include-guarded
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR obj
 
 template<class Type>
-Type objective_function<Type>::operator() ()
-{
-  DATA_INTEGER(nG);                           // number of groups in data for abundance estimation
+Type multistate(objective_function<Type>* obj) {
+  
   DATA_INTEGER(n);                            // number of capture histories
   DATA_INTEGER(m);                            // number of capture occasions
   DATA_INTEGER(nS);                           // number of states excluding death state
@@ -58,68 +60,17 @@ Type objective_function<Type>::operator() ()
   DATA_IMATRIX(psi_idIndex);                  // psi random effect indices by id; index into u_phi to construct phi_u
   DATA_IVECTOR(psi_idIndex_i);                // psi random effect id index indices
   
-  DATA_INTEGER(nrowpent);                      // number of rows in the simplified design matrix for pent
-  DATA_MATRIX(pentdm);                         // design matrix for pent
-  DATA_VECTOR(pentfix);                        // pent fixed values
-  DATA_IVECTOR(pentindex);                     // pent indices
-  DATA_INTEGER(pent_nre);                      // number of random effects for pent
-  DATA_INTEGER(pent_krand);                    // number of columns in pent random effect DM
-  DATA_MATRIX(pent_randDM);                    // pent random effect DM
-  DATA_IVECTOR(pent_randDM_i);                 // pent random DM indices
-  DATA_IMATRIX(pent_randIndex);                // pent random effect indices for DM; index into phi_u
-  DATA_IVECTOR(pent_randIndex_i);              // pent random effect index indices
-  DATA_IVECTOR(pent_counts);                   // count of pent random effect indices by id
-  DATA_IMATRIX(pent_idIndex);                  // pent random effect indices by id; index into u_phi to construct phi_u
-  DATA_IVECTOR(pent_idIndex_i);                // pent random effect id index indices
-  
-  DATA_INTEGER(nrowpi);                      // number of rows in the simplified design matrix for pi
-  DATA_MATRIX(pidm);                         // design matrix for pi
-  DATA_VECTOR(pifix);                        // pi fixed values
-  DATA_IVECTOR(piindex);                     // pi indices
-  DATA_INTEGER(pi_nre);                      // number of random effects for pi
-  DATA_INTEGER(pi_krand);                    // number of columns in pi random effect DM
-  DATA_MATRIX(pi_randDM);                    // pi random effect DM
-  DATA_IVECTOR(pi_randDM_i);                 // pi random DM indices
-  DATA_IMATRIX(pi_randIndex);                // pi random effect indices for DM; index into phi_u
-  DATA_IVECTOR(pi_randIndex_i);              // pi random effect index indices
-  DATA_IVECTOR(pi_counts);                   // count of pi random effect indices by id
-  DATA_IMATRIX(pi_idIndex);                  // pi random effect indices by id; index into u_phi to construct phi_u
-  DATA_IVECTOR(pi_idIndex_i);                // pi random effect id index indices
- 
- DATA_INTEGER(nrowdelta);                      // number of rows in the simplified design matrix for delta
- DATA_MATRIX(deltadm);                         // design matrix for delta
- DATA_VECTOR(deltafix);                        // delta fixed values
- DATA_IVECTOR(deltaindex);                     // delta indices
- DATA_INTEGER(delta_nre);                      // number of random effects for delta
- DATA_INTEGER(delta_krand);                    // number of columns in delta random effect DM
- DATA_MATRIX(delta_randDM);                    // delta random effect DM
- DATA_IVECTOR(delta_randDM_i);                 // delta random DM indices
- DATA_IMATRIX(delta_randIndex);                // delta random effect indices for DM; index into phi_u
- DATA_IVECTOR(delta_randIndex_i);              // delta random effect index indices
- DATA_IVECTOR(delta_counts);                   // count of delta random effect indices by id
- DATA_IMATRIX(delta_idIndex);                  // delta random effect indices by id; index into u_phi to construct phi_u
- DATA_IVECTOR(delta_idIndex_i);                // delta random effect id index indices
- 
   DATA_INTEGER(getreals);                     // if 1, report reals and std errors
   
   PARAMETER_VECTOR(phibeta);                  // parameter vector for Phi
   PARAMETER_VECTOR(pbeta);                    // parameter vector for p
   PARAMETER_VECTOR(psibeta);                  // parameter vector for Psi
-  PARAMETER_VECTOR(pentbeta);                 // parameter vector for pent
-  PARAMETER_VECTOR(pibeta);                   // parameter vector for pi
-  PARAMETER_VECTOR(deltabeta);                // parameter vector for delta
   PARAMETER_VECTOR(log_sigma_phi);
   PARAMETER_VECTOR(log_sigma_p);
   PARAMETER_VECTOR(log_sigma_psi);
-  PARAMETER_VECTOR(log_sigma_pent);
-  PARAMETER_VECTOR(log_sigma_pi);
-  PARAMETER_VECTOR(log_sigma_delta);
   PARAMETER_VECTOR(u_phi);
   PARAMETER_VECTOR(u_p);
   PARAMETER_VECTOR(u_psi);
-  PARAMETER_VECTOR(u_pent);
-  PARAMETER_VECTOR(u_pi);
-  PARAMETER_VECTOR(u_delta);
   
   Type g=0;
   
@@ -128,7 +79,7 @@ Type objective_function<Type>::operator() ()
   int nT;                              // number of transitions excluding death
   nT=nS*nS*(m-1);
   
-  int i,j,k,bindex,bindex2,bindex3,bindex4,k2,idx,i2;  // indices and counters
+  int i,j,k,bindex,bindex2,k2,idx,i2;  // indices and counters
   int L;
   vector<Type> uniquephi(nrowphi);     // all unique phi values
   vector<Type> phi(nrows);             // temp vector for Phis for an individual
@@ -136,23 +87,12 @@ Type objective_function<Type>::operator() ()
   vector<Type> p(nrows);               // temp vector for ps for an individual
   vector<Type> uniquepsi(nrowpsi);     // temp vector for psis
   Type psisum;                         // sum of psi for each state to normalize with
-  vector<Type> uniquepent(nrowpent);   // temp vector for pent
-  Type pentsum;                        // sum of pent across time
-  vector<Type> uniquepi(nrowpi);       // temp vector for pi
-  Type pisum;                          // sum of pi across states within a time
-  vector<Type> uniquedelta(nrowdelta); // temp vector for delta
-
+  
   array<Type> psi(m-1,nS,nS);         // matrix for psis for each occasion
-  vector<Type> pent(m-1);             // vector for pent by occasion
-  vector<Type> cumsumpent(m-2);       // vector for cumulative sums of pent by occasion
-  array<Type> pi(m-1,nS-1);           // matrix for pi by occasion / stratum
-  array<Type> delta(m-1,nS-1);        // matrix for delta by occasion / stratum
   array<Type> gamma(m-1,nS+1,nS+1);   // transition probability matrices for individual i
-  array<Type> dmat(m-1,nS+2,nS+1);    // observation probability matrices for individual i
+  array<Type> dmat(m-1,nS+1,nS+1);    // observation probability matrices for individual i
   array<double> allgamma(n,m-1,nS+1,nS+1);   // transition probability matrices for all individuals
-  array<double> alldmat(n,m-1,nS+2,nS+1);      // observation probability matrices  for all individuals
-  array<double> allp0(nG);            // probability of never seeing an animal (all 0 capture history) in each group
-  array<double> allN(nG);             // abundance of animals in each group
+  array<double> alldmat(n,m-1,nS+1,nS+1);      // observation probability matrices  for all individuals
   Type u;                             // sum of state probabilities
   vector<Type> pS(nS+1);              // update vector for prob of being in state j=1,nS + death
   vector<Type> S(nS+1);               // prob of being in state j=1,nS + death for each occasion
@@ -160,62 +100,36 @@ Type objective_function<Type>::operator() ()
   vector<Type> vec;                   // temporary vector
   Type Lglki=0;                       // log-likelihood accumulator
   Type mu;
-  Type p0;
   int nphicounts=n;                   // number of counts for phi random effects by id
   if(phi_nre==0)nphicounts=0;
   int npcounts=n;                     // number of counts for p random effects by id
   if(p_nre==0)npcounts=0;
   int npsicounts=n;                   // number of counts for psi random effects by id
   if(psi_nre==0)npsicounts=0;
-  int npentcounts=n;                   // number of counts for pent random effects by id
-  if(pent_nre==0)npentcounts=0;
-  int npicounts=n;                   // number of counts for pent random effects by id
-  if(pi_nre==0)npicounts=0;
-  int ndeltacounts=n;                   // number of counts for pent random effects by id
-  if(delta_nre==0)ndeltacounts=0;
   
-  if(phi_krand>0)	                                        // likelihood contribution for n(0,1) re for phi
+  if(phi_krand>0)	                                        // likelihood contribution for n(0,1) re for
     for (int i=0;i<=phi_nre-1;i++)
       g-= dnorm(u_phi(i),Type(0),Type(1),true);
   
-  if(p_krand>0)	                                         // likelihood contribution for n(0,1) re for p
+  if(p_krand>0)	                                        // likelihood contribution for n(0,1) re for p
     for (int i=0;i<=p_nre-1;i++)
       g-= dnorm(u_p(i),Type(0),Type(1),true);
   
-  if(psi_krand>0)	                                        // likelihood contribution for n(0,1) re for psi
+  if(psi_krand>0)	                                        // likelihood contribution for n(0,1) re for p
     for (int i=0;i<=psi_nre-1;i++)
       g-= dnorm(u_psi(i),Type(0),Type(1),true);
-  
-  if(pent_krand>0)	                                      // likelihood contribution for n(0,1) re for pent
-    for (int i=0;i<=pent_nre-1;i++)
-      g-= dnorm(u_pent(i),Type(0),Type(1),true);
-  
-  if(pi_krand>0)	                                      // likelihood contribution for n(0,1) re for pi
-    for (int i=0;i<=pi_nre-1;i++)
-      g-= dnorm(u_pi(i),Type(0),Type(1),true);
-
-  if(delta_krand>0)	                                      // likelihood contribution for n(0,1) re for delta
-    for (int i=0;i<=delta_nre-1;i++)
-      g-= dnorm(u_delta(i),Type(0),Type(1),true);
   
   uniquephi=phidm*phibeta;                              // compute unique parameter sets on link scale
   uniquep=pdm*pbeta;
   uniquepsi=psidm*psibeta;
-  uniquepent=pentdm*pentbeta;
-  uniquepi=pidm*pibeta;
-  uniquedelta=deltadm*deltabeta;
   alldmat.setZero();
   allgamma.setZero();
   
-  // loop over capture histories
-  for(i=1;i<=n;i++)                                    
+  for(i=1;i<=n;i++)                                     // loop over capture histories - one per capture history
   {
     vector<Type> p_u(p_idIndex.cols());        // define random effects vector for p, Phi and psi used
     vector<Type> phi_u(phi_idIndex.cols());    // just for this capture history copied from full vectors
     vector<Type> psi_u(psi_idIndex.cols());
-    vector<Type> pent_u(pent_idIndex.cols());
-    vector<Type> pi_u(pi_idIndex.cols());
-    vector<Type> delta_u(delta_idIndex.cols());
     p_u.setZero();
     phi_u.setZero();
     if(nphicounts >0)                          // if any random effects for phi, copy values from u_phi to phi_u
@@ -244,73 +158,13 @@ Type objective_function<Type>::operator() ()
         for(j=0;j<=psi_counts(i-1)-1;j++)
           psi_u(j)=u_psi(psi_idIndex(psi_idIndex_i(i-1)-1,j)-1);
     }
-    
-    if(npentcounts >0)                           // if any random effects for pent, copy values from u_pent to pent_u
-    {
-      if(pent_counts(i-1)==0)
-        pent_u(0)=0;
-      else
-        for(j=0;j<=pent_counts(i-1)-1;j++)
-          pent_u(j)=u_pent(pent_idIndex(pent_idIndex_i(i-1)-1,j)-1);
-    }
-    
-    if(npicounts >0)                           // if any random effects for pi, copy values from u_pi to pi_u
-    {
-      if(pi_counts(i-1)==0)
-        pi_u(0)=0;
-      else
-        for(j=0;j<=pi_counts(i-1)-1;j++)
-          pi_u(j)=u_pi(pi_idIndex(pi_idIndex_i(i-1)-1,j)-1);
-    }
-
-    if(ndeltacounts >0)                           // if any random effects for delta, copy values from u_delta to delta_u
-    {
-      if(delta_counts(i-1)==0)
-        delta_u(0)=0;
-      else
-        for(j=0;j<=delta_counts(i-1)-1;j++)
-          delta_u(j)=u_delta(delta_idIndex(delta_idIndex_i(i-1)-1,j)-1);
-    }
-    
+    //  compute phi and p values for the individual
     bindex=(i-1)*nrows;                               // initialize indices into index values for the ith history
     bindex2=(i-1)*nT;
-    bindex3=(i-1)*(m-1);
-    bindex4=(i-1)*(m-1)*(nS-1);
-    pentsum=0;
-    
-    // loop over occasions
     for (j=1;j<=m-1;j++)
     {
-      // compute pent values over time 
-      i2=bindex3+j;
-      idx=pentindex(i2-1)-1;
-      if(pentfix(idx)< -0.5)
-      {
-        mu=0;
-        if(npentcounts>0)
-          if(pent_counts(i-1) > 0)	                        // random portion of mean if any
-          {
-            for(L=1;L<=pent_krand;L++)
-              if(pent_randIndex(pent_randIndex_i(i2-1)-1,L-1)>0)
-                mu+=pent_randDM(pent_randDM_i(i2-1)-1,L-1)*pent_u(pent_randIndex(pent_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_pent(L-1));
-          }
-          if((uniquepent(idx)+mu)< -700)
-            pent(j-1)=exp(-700);
-          else  
-            if((uniquepent(idx)+mu)> 700)
-              pent(j-1)=exp(700);
-            else
-              pent(j-1)=exp(uniquepent(idx)+mu);
-      }
-      else
-        pent(j-1)=pentfix(idx);
-      pentsum+=pent(j-1);
-      
-      // loop over strata
-      pisum=0;
       for (k=1;k<=nS;k++)
       {
-        // compute p values by state for the jth occasion
         i2=bindex+(j-1)*nS+k;
         idx=pindex(i2-1)-1;
         if(pfix(idx)< -0.5)
@@ -333,8 +187,6 @@ Type objective_function<Type>::operator() ()
         }
         else
           p((j-1)*nS+k-1)=pfix(idx);
-        
-        // compute phi values by state for the jth occasion
         idx=phiindex(i2-1)-1;
         if(phifix(idx)< -0.5)
         {
@@ -350,62 +202,6 @@ Type objective_function<Type>::operator() ()
         }
         else
           phi((j-1)*nS+k-1)=phifix(idx);
-        
-        // compute pi  and delta values for each state (excluding N) for the jth occasion
-        if(k>1)
-        {
-          i2=bindex4+(j-1)*(nS-1)+k-1;
-          idx=piindex(i2-1)-1;
-          
-          // pi
-          if(pifix(idx)< -0.5)
-          {
-            mu=0;
-            if(npicounts>0)
-              if(pi_counts(i-1) > 0)	                        // random portion of mean if any
-              {
-                for(L=1;L<=pi_krand;L++)
-                  if(pi_randIndex(pi_randIndex_i(i2-1)-1,L-1)>0)
-                    mu+=pi_randDM(pi_randDM_i(i2-1)-1,L-1)*pi_u(pi_randIndex(pi_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_pi(L-1));
-              }
-              if((uniquepi(idx)+mu)< -700)
-                pi(j-1,k-2)=exp(-700);
-              else  
-                if((uniquepi(idx)+mu)> 700)
-                  pi(j-1,k-2)=exp(700);
-                else
-                  pi(j-1,k-2)=exp(uniquepi(idx)+mu);
-          }
-          else
-            pi(j-1,k-2)=pifix(idx);
-          pisum+=pi(j-1,k-2);
-          
-          // delta
-          idx=deltaindex(i2-1)-1;
-          if(deltafix(idx)< -0.5)
-          {
-            mu=0;
-            if(ndeltacounts>0)
-              if(delta_counts(i-1) > 0)	                        // random portion of mean if any
-              {
-                for(L=1;L<=delta_krand;L++)
-                  if(delta_randIndex(delta_randIndex_i(i2-1)-1,L-1)>0)
-                    mu+=delta_randDM(delta_randDM_i(i2-1)-1,L-1)*delta_u(delta_randIndex(delta_randIndex_i(i2-1)-1,L-1)-1)*exp(log_sigma_delta(L-1));
-              }
-              if((uniquedelta(idx)+mu)< -25)
-                delta(j-1,k-2)=1/(1+exp(25));
-              else  
-                if((uniquedelta(idx)+mu)> 25)
-                  delta(j-1,k-2)=1/(1+exp(-25));
-                else
-                  delta(j-1,k-2)=1/(1+exp(-(uniquedelta(idx)+mu)));
-                
-          }
-          else
-            delta(j-1,k-2)=deltafix(idx);
-        }
-        
-        //  compute psi values for the individual
         psisum=0;
         for(k2=1;k2<=nS;k2++)
         {
@@ -435,39 +231,14 @@ Type objective_function<Type>::operator() ()
         }
         for(k2=1;k2<=nS;k2++)
           psi(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)/psisum;
-        
-      } // end of loop over states
+      }
       bindex2=bindex2+nS*nS;
-      
-      
-      // normalize pi over strata
-      for (k=2;k<=nS;k++)
-        pi(j-1,k-2)=pi(j-1,k-2)/pisum;
-
-    } // end of loop over occasions
-    
-    // normalize pent to sum to 1 by looping over occasions
-    for (j=1;j<=m-1;j++)
-      pent(j-1)=pent(j-1)/pentsum;
-    // now adjust pent such that all are moved out of N; first compute cummulative sums
-    for (j=1;j<=m-2;j++)
-    {
-      if(j>1)
-        cumsumpent(j-1)=cumsumpent(j-2)+pent(j-1);
-      else
-        cumsumpent(0)=pent(0);
-    }  
-    for (j=2;j<=m-1;j++)
-      pent(j-1)=pent(j-1)/(1-cumsumpent(j-2));
-    
-    if(getreals>0)                                               // if requested report phi,p,psi,pent and f0 values
+    }
+    if(getreals>0)                                               // if requested report phi,p and psi values
     {
       ADREPORT(phi);
       ADREPORT(p);
       ADREPORT(psi);
-      ADREPORT(pent);
-      ADREPORT(pi);
-      ADREPORT(delta);
     }
     
     //  compute transition matrices for each occasion
@@ -479,15 +250,7 @@ Type objective_function<Type>::operator() ()
       {
         for(k2=1;k2<=nS;k2++)
         {
-          if(k==1)
-          {
-            if(k2>1)
-              gamma(j-1,0,k2-1)=pent(j-1)*pi(j-1,k2-2);  // entry to population from state N
-            else
-              gamma(j-1,0,0)=1-pent(j-1); //stay in state N (not enter at this occasion)
-          }
-          else
-            gamma(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)*phi(bindex-1);    // adjust psi for survival
+          gamma(j-1,k-1,k2-1)=psi(j-1,k-1,k2-1)*phi(bindex-1);    // adjust psi for survival
           allgamma(i-1,j-1,k-1,k2-1)=asDouble(gamma(j-1,k-1,k2-1));
         }
         gamma(j-1,k-1,nS)=1-phi(bindex-1);              // add death state value for each state
@@ -498,6 +261,7 @@ Type objective_function<Type>::operator() ()
       allgamma(i-1,j-1,nS,nS)=1;
     }
     
+    
     //  compute state dependent observation matrices for each occasion
     dmat.setZero();
     bindex=1;
@@ -505,16 +269,9 @@ Type objective_function<Type>::operator() ()
     {
       for(k=1;k<=nS;k++)
       {
-        if(k==1)
-          dmat(j-1,k,k-1)=p(bindex-1);
-        else
-        {
-          dmat(j-1,k,k-1)=p(bindex-1)*(1-delta(j-1,k-2));
-          dmat(j-1,nS+1,k-1)=p(bindex-1)*delta(j-1,k-2);
-        }
+        dmat(j-1,k,k-1)=p(bindex-1);
         alldmat(i-1,j-1,k,k-1)=asDouble(dmat(j-1,k,k-1));
-        alldmat(i-1,j-1,nS+1,k-1)=asDouble(dmat(j-1,nS+1,k-1));
-        dmat(j-1,0,k-1)=1-p(bindex-1);
+        dmat(j-1,0,k-1)=1-dmat(j-1,k,k-1);
         alldmat(i-1,j-1,0,k-1)=asDouble(dmat(j-1,0,k-1));
         bindex++;
       }
@@ -532,11 +289,9 @@ Type objective_function<Type>::operator() ()
       {
         pS(k-1)=0;
         for(k2=1;k2<=nS+1;k2++)
-        {
           pS(k-1)+= S(k2-1)*gamma(j-2,k2-1,k-1);
-        }
       }
-      for(k=1;k<=nS+1;k++) 
+      for(k=1;k<=nS+1;k++)
       {
         v(k-1)=pS(k-1)*dmat(j-2,ch(i-1,j-1),k-1); // v is temp state vector alpha in Z&M
       }
@@ -549,23 +304,13 @@ Type objective_function<Type>::operator() ()
       Lglki+=log(u);    	                            // accumulate log-likelihood value
       
     }
-    if(freq(i-1)<=0)
-    {
-      p0=exp(Lglki);
-      allp0(i-1)=asDouble(p0);
-      g+=-freq(i-1)*log(1-p0);
-      allN(i-1)=asDouble(-freq(i-1)/(1-p0));
-    }
-    else
-    {
-      g-=freq(i-1)*Lglki;
-    }
+    g-=freq(i-1)*Lglki;
     
-  }  // end of loop over individuals
-
-  REPORT(allp0);
-  REPORT(allN);
+  }
   REPORT(alldmat);
   REPORT(allgamma);
   return g;
 }
+
+#undef TMB_OBJECTIVE_PTR
+#define TMB_OBJECTIVE_PTR this

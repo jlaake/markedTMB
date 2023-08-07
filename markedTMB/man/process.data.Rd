@@ -158,10 +158,10 @@ occ,age,time,cohort,Age,Time,Cohort,time.interval,fix
 
 
 data(dipper)
-dipper.process=process.data(dipper,groups="sex")
+dipper.process=process.data(dipper,groups="sex",strata.labels=c("1","2"))
 # create some artificial age data as an example
 dipper$ageclass=factor(c(rep("A",100),rep("J",194)))
-dipper.process=process.data(dipper,groups=c("sex","ageclass"),age.var=2,initial.ages=c(1,0))
+dipper.process=process.data(dipper,groups=c("sex","ageclass"),age.var=2,initial.ages=c(1,0),strata.labels=c("1","2"))
 
 }
 \seealso{
