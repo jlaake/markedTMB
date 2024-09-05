@@ -191,6 +191,9 @@ initial.ages=c(0),time.intervals=NULL,nocc=NULL,accumulate=TRUE,strata.labels=NU
 	      stop("\nstrata.labels must be specified for stratified models\n")
      if(model=="MSLD" && any(!is.na(suppressWarnings(as.numeric(strata.labels)))))
          stop("For MSLD model strata labels must be alpha characters. Not numeric.")
+     if(substr(model,1,4)=="MVMS")
+       if(any(sapply(strata.labels,function(x) any(x=="0")))) 
+         stop("0 cannot be used as a stratum label in MVMS model")
    }
    if(model.list$IShmm)
    {
